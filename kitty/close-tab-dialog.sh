@@ -26,14 +26,12 @@ else
   rows+=("  ${DIM}$(ckt_t dialog.nothing_running)${R}${BOX}")
 fi
 for p in "$@"; do
-  (( ${#p} > inner - 6 )) && p="${p:0:inner-7}…"
+  p=$(ckt_fit "$p" $(( inner - 6 )))
   rows+=("   ${YELLOW}●${R}${BOX} ${WHITE}${p}${R}${BOX}")
 done
 rows+=("")
 rows+=("  ${KEY_ACCENT} Enter ${R}${BOX} ${WHITE}$(ckt_t dialog.close)${R}${BOX}     ${KEY_GRAY} Esc ${R}${BOX} ${DIM}$(ckt_t dialog.cancel)${R}${BOX}")
 rows+=("")
-
-visible() { local s; s=$(printf '%s' "$1" | sed $'s/\e\\[[0-9;]*m//g'); printf '%s' "${#s}"; }
 
 height=$(( ${#rows[@]} + 2 ))
 top=$(( (lines - height) / 2 )); (( top < 0 )) && top=0
@@ -45,7 +43,7 @@ draw() {
   for ((i = 0; i < top; i++)); do printf '\n'; done
   printf '%s%s%s╭%s╮%s\n' "$pad" "$BOX" "$BORDER" "$(printf '─%.0s' $(seq 1 "$inner"))" "$R$BG"
   for l in "${rows[@]}"; do
-    rest=$(( inner - $(visible "$l") ))
+    rest=$(( inner - $(ckt_width "$l") ))
     (( rest < 0 )) && rest=0
     printf '%s%s%s│%s%s%*s%s│%s\n' "$pad" "$BOX" "$BORDER" "$R$BOX" "$l" "$rest" '' "$BORDER" "$R$BG"
   done

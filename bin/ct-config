@@ -12,12 +12,18 @@ import signal
 import subprocess
 import sys
 import time
+import unicodedata
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 
 import ckt  # noqa: E402
 import shortcuts as sc  # noqa: E402
 from menu import Menu  # noqa: E402
+
+
+def cells(text):
+    """Screen columns of `text` (Chinese characters take two)."""
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in text)
 
 KEYS = {
     curses.KEY_UP: "up", ord("k"): "up",
@@ -59,7 +65,7 @@ def draw(win, m: Menu, colors):
     rows, values, cursor = v["rows"], v["values"], v["cursor"]
     room = max(3, h - 7)
     start = min(max(0, cursor - room // 2), max(0, len(rows) - room))
-    label_w = max([len(r) for r in rows] + [0]) + 4
+    label_w = max([cells(r) for r in rows] + [0]) + 4
     for n, row in enumerate(rows[start:start + room]):
         i = start + n
         y = 4 + n
@@ -68,7 +74,7 @@ def draw(win, m: Menu, colors):
         if v["level"] == "order" and selected and v["moving"]:
             attr = curses.A_REVERSE | curses.A_BOLD
             row = f"⇅ {row}"
-        text = row.ljust(label_w) + (values[i] if values[i] else "")
+        text = row + " " * (label_w - cells(row)) + (values[i] if values[i] else "")
         if v["level"] == "list" and m.stack[-1][0].children[i].kind in ("group", "shortcut"):
             text += "  ›"
         put(win, y, 3, (" " + text + " ") if selected else " " + text, attr)

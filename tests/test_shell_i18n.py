@@ -3,11 +3,16 @@ import os
 import re
 import subprocess
 import tempfile
+import unicodedata
 import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 ANSI = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
+
+
+def cells(text):
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in text)
 
 
 class ShellI18nTest(unittest.TestCase):
@@ -32,7 +37,7 @@ class ShellI18nTest(unittest.TestCase):
                          "rate_limits": {"seven_day": {"used_percentage": 15}}})
 
     def test_statusline_week_label(self):
-        for lang, label in (("en", "wk "), ("pt", "sem ")):
+        for lang, label in (("en", "wk "), ("pt", "sem "), ("zh", "周 ")):
             with self.subTest(lang=lang):
                 self.lang(lang)
                 self.assertIn(label, self.run_script("claude/statusline.sh", self.STATUS)[1])
@@ -73,7 +78,7 @@ class ShellI18nTest(unittest.TestCase):
 
     def test_subagent_fallback_name(self):
         tasks = json.dumps({"cwd": "/tmp", "columns": 100, "tasks": [{"id": "1", "label": "doing"}]})
-        for lang, name in (("en", "agent"), ("pt", "agente")):
+        for lang, name in (("en", "agent"), ("pt", "agente"), ("zh", "代理")):
             with self.subTest(lang=lang):
                 self.lang(lang)
                 line = json.loads(self.run_script("claude/subagent-statusline.sh", tasks)[1].splitlines()[0])
@@ -97,13 +102,32 @@ class ShellI18nTest(unittest.TestCase):
         self.assertTrue(Path(self.tmp.name, ".cache/custom-kitty-terminal/agents/s1.json").exists())
 
     def test_dialog_text(self):
-        for lang, text in (("en", "Close this tab?"), ("pt", "Fechar esta aba?")):
+        for lang, text in (("en", "Close this tab?"), ("pt", "Fechar esta aba?"), ("zh", "关闭此标签页？")):
             with self.subTest(lang=lang):
                 self.lang(lang)
                 env = dict(self.env, TERM="xterm", COLUMNS="80", LINES="24")
                 r = subprocess.run(["bash", str(REPO / "kitty/close-tab-dialog.sh"), "tab:1", "claude"],
                                    input="\x1b", capture_output=True, text=True, env=env, timeout=20)
                 self.assertIn(text, ANSI.sub("", r.stdout))
+
+    def test_dialog_box_lines_up_with_wide_characters(self):
+        for lang in ("en", "pt", "zh"):
+            with self.subTest(lang=lang):
+                self.lang(lang)
+                env = dict(self.env, TERM="xterm", COLUMNS="80", LINES="24")
+                r = subprocess.run(["bash", str(REPO / "kitty/close-tab-dialog.sh"), "tab:1", "claude", "长长的程序名" * 6],
+                                   input="\x1b", capture_output=True, text=True, env=env, timeout=20)
+                box = [l.strip() for l in ANSI.sub("", r.stdout).splitlines() if l.strip()[:1] and l.strip()[:1] in "╭│╰"]
+                self.assertGreater(len(box), 4)
+                self.assertEqual({cells(l) for l in box}, {54})
+
+    def test_subagent_label_fits_with_wide_characters(self):
+        self.lang("zh")
+        tasks = json.dumps({"cwd": "/tmp", "columns": 60, "tasks": [{"id": "1", "label": "检查拉取请求" * 10}]})
+        line = json.loads(self.run_script("claude/subagent-statusline.sh", tasks)[1].splitlines()[0])
+        content = ANSI.sub("", line["content"])
+        self.assertIn("…", content)
+        self.assertLessEqual(cells(content), 58)
 
     def test_ct_help_mentions_config(self):
         self.lang("en")
