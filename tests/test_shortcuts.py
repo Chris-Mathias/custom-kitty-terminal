@@ -99,6 +99,20 @@ class ShortcutsTest(unittest.TestCase):
             for lang in ckt.LANGUAGES:
                 self.assertNotEqual(ckt.t(a.label_key, lang), a.label_key, a.id)
 
+    def test_reset_after_swap_keeps_keys_unique(self):
+        s, _ = sc.assign(settings(), "close_tab", "alt+1")  # swaps with "go to tab 1"
+        s = sc.reset(s, "close_tab")
+        keys = sc.keys_for(s)
+        self.assertEqual(keys["close_tab"], "ctrl+w")
+        self.assertEqual(len(set(keys.values())), len(keys))
+        conf = {l.split()[1]: l for l in maps(sc.shortcuts_conf(s))}
+        self.assertIn("close_tab.py", conf["ctrl+w"])
+        self.assertIn("goto_tab 1", conf["alt+1"])
+
+    def test_assign_ignores_unknown_ids(self):
+        s, _ = sc.assign(settings(shortcuts={"old_id": "ctrl+x"}), "settings", "ctrl+alt+s")
+        self.assertEqual(sc.keys_for(s)["settings"], "ctrl+alt+s")
+
 
 if __name__ == "__main__":
     unittest.main()

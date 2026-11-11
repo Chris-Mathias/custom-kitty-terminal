@@ -89,6 +89,10 @@ class SettingsModelTest(unittest.TestCase):
         s = self.load({"response_style": {"previous": "Explanatory"}})
         self.assertEqual(s["response_style"]["previous"], "Explanatory")
 
+    def test_shortcut_overrides_validated(self):
+        s = self.load({"shortcuts": {"old_id": "ctrl+x", "settings": "foo bar", "tab_1": "Alt+9"}})
+        self.assertEqual(s["shortcuts"], {"tab_1": "alt+9"})
+
 
 if __name__ == "__main__":
     unittest.main()

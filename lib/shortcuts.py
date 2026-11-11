@@ -53,6 +53,14 @@ CAPTURE_ESCAPE = "ctrl+alt+shift+f12"
 MODIFIERS = ("ctrl", "alt", "shift", "super")
 
 
+_VALID_KEYS = re.compile(r"^((ctrl|alt|shift|super)\+)*[a-z0-9_]+$|^((ctrl|alt|shift|super)\+)+[^\s+]$")
+
+
+def valid_keys(keys: str) -> bool:
+    """A combination kitty's map notation can take (letters, names like f2/enter/minus)."""
+    return bool(_VALID_KEYS.match(normalize(keys))) if isinstance(keys, str) and keys.strip() else False
+
+
 def normalize(keys: str) -> str:
     parts = [p.strip().lower() for p in keys.split("+") if p.strip()]
     mods = [m for m in MODIFIERS if m in parts[:-1]]
@@ -85,7 +93,7 @@ def assign(s: dict, action_id: str, keys: str) -> tuple[dict, str | None]:
     keys = normalize(keys)
     current = keys_for(s)
     other = next((i for i, k in current.items() if k == keys and i != action_id), None)
-    overrides = dict(s.get("shortcuts", {}))
+    overrides = {i: k for i, k in s.get("shortcuts", {}).items() if i in BY_ID}
     if other:
         overrides[other] = current[action_id]
     overrides[action_id] = keys
@@ -94,8 +102,8 @@ def assign(s: dict, action_id: str, keys: str) -> tuple[dict, str | None]:
 
 
 def reset(s: dict, action_id: str) -> dict:
-    overrides = {i: k for i, k in s.get("shortcuts", {}).items() if i != action_id}
-    return dict(s, shortcuts=overrides)
+    """Back to the default keys; whoever holds them now gets this action's keys (a swap)."""
+    return assign(s, action_id, BY_ID[action_id].default)[0]
 
 
 def reset_all(s: dict) -> dict:

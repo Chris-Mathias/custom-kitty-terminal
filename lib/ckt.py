@@ -105,7 +105,9 @@ def _nested(key: str, value):
             rs["previous"] = value["previous"]
         return rs
     if key == "shortcuts":
-        return {k: v for k, v in value.items() if isinstance(k, str) and isinstance(v, str) and v}
+        import shortcuts
+        return {k: shortcuts.normalize(v) for k, v in value.items()
+                if k in shortcuts.BY_ID and shortcuts.valid_keys(v)}
     return default
 
 
