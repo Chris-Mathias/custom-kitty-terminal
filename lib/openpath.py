@@ -12,6 +12,7 @@ import json
 import os
 import re
 import shutil
+import unicodedata
 import subprocess
 from pathlib import Path
 from typing import NamedTuple
@@ -57,6 +58,32 @@ def target_at(line: str, x: int) -> Target | None:
         return None  # a plain word, not a file
     num = lambda g: int(m.group(g)) if m and m.group(g) else None  # noqa: E731
     return Target("path", path, num("line"), num("col"))
+
+
+def _cells(ch: str) -> int:
+    """Terminal columns a character takes: 2 for wide ones (CJK, most emoji), 0 for combining marks."""
+    if unicodedata.combining(ch):
+        return 0
+    return 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+
+
+def index_at_cell(text: str, x: int) -> int:
+    """The index in `text` of the character drawn at terminal column `x`.
+
+    A row's text has one character per character, not per column: wide characters
+    take two columns, so the mouse's column must be mapped back."""
+    cell = 0
+    for i, ch in enumerate(text):
+        w = _cells(ch)
+        if w and cell <= x < cell + w:
+            return i
+        cell += w
+    return len(text) + (x - cell)
+
+
+def target_at_cell(line: str, x: int) -> Target | None:
+    """target_at() for terminal column `x` (what kitty reports for the mouse)."""
+    return target_at(line, index_at_cell(line, x))
 
 
 def resolve(path: str, dirs: list[str]) -> str | None:

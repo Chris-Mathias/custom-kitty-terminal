@@ -46,6 +46,22 @@ class TargetAtTest(unittest.TestCase):
         self.assertEqual(op.target_at(line, line.index("example")), op.Target("url", "https://example.com/a?b=1"))
 
 
+class CellTest(unittest.TestCase):
+    def test_narrow_text_maps_one_to_one(self):
+        self.assertEqual(op.index_at_cell("abc", 1), 1)
+
+    def test_wide_characters_take_two_columns(self):
+        line = "中文 src/a.rs"  # 中 and 文 take 2 columns each
+        self.assertEqual(op.index_at_cell(line, 0), 0)
+        self.assertEqual(op.index_at_cell(line, 1), 0)
+        self.assertEqual(op.index_at_cell(line, 2), 1)
+        self.assertEqual(op.target_at_cell(line, 7), op.Target("path", "src/a.rs"))
+
+    def test_past_the_end(self):
+        self.assertEqual(op.index_at_cell("ab", 5), 5)
+        self.assertIsNone(op.target_at_cell("ab", 5))
+
+
 class ResolveTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

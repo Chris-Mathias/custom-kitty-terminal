@@ -88,7 +88,7 @@ def _open(boss: Boss, target_window_id: int) -> None:
         _log(f'window {window.id}: no mouse position')
         return
     text = str(window.screen.visual_line(pos['cell_y']) or '')
-    target = op.target_at(text, pos['cell_x'])
+    target = op.target_at_cell(text, pos['cell_x'])
     _log(f'window {window.id} cell {pos["cell_x"]},{pos["cell_y"]}: {target} in {text.strip()[:120]!r}')
     # Images first: "[Image #3]" is no link, and a URL detector could take part of the row.
     if target is not None and target.kind == 'image':
