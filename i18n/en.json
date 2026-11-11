@@ -171,5 +171,7 @@
   "panel.main_conversation": "main conversation",
   "panel.agent_command_description": "Shows a subagent's conversation: /agent 2, next, prev or main",
   "panel.no_such_agent": "No subagent with that number.",
-  "value.title_bar.system": "The system's"
+  "value.title_bar.system": "The system's",
+  "menu.item.tab_close_buttons": "Close button on tabs",
+  "menu.item.panel_close_buttons": "Close button on panel sessions"
 }

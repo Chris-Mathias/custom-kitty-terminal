@@ -78,6 +78,13 @@ class MenuTest(unittest.TestCase):
         self.assertEqual(go(m, "Claude Code", "Subagent list below the prompt", "Off"), "apply")
         self.assertIs(m.settings["subagent_rows"], False)
 
+    def test_close_buttons(self):
+        m = menu()
+        self.assertEqual(go(m, "Behavior", "Close button on tabs", "On"), "apply")
+        self.assertIs(m.settings["tab_close_buttons"], True)
+        self.assertEqual(go(m, "Close button on panel sessions", "On"), "apply")
+        self.assertIs(m.settings["panel_close_buttons"], True)
+
     def test_status_line_toggle(self):
         m = menu()
         self.assertEqual(go(m, "Claude Code", "Status line", "Weekly limit", "Off"), "apply")

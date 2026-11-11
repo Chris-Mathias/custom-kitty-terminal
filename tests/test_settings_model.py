@@ -44,6 +44,8 @@ class SettingsModelTest(unittest.TestCase):
         self.assertEqual(d["status_line"], {k: True for k in ckt.STATUS_ITEMS})
         self.assertEqual(d["panel"], {"sections": ["sessions", "agents", "tasks", "git", "files"], "auto_open": True})
         self.assertIs(d["subagent_rows"], True)
+        self.assertIs(d["tab_close_buttons"], False)
+        self.assertIs(d["panel_close_buttons"], False)
         self.assertIs(d["reopen_tabs"], True)
         self.assertEqual(d["confirm_close"], "running")
         self.assertIs(d["kitty_ctrl_keys"], True)

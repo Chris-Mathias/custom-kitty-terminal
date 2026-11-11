@@ -40,6 +40,8 @@ CHOICES = {
     "kitty_ctrl_keys": (True, False),
     "scrollback": (5000, 10000, 20000, 50000, 100000),
     "bell": (False, True),
+    "tab_close_buttons": (False, True),
+    "panel_close_buttons": (False, True),
 }
 RESPONSE_LENGTHS = ("short", "balanced", "detailed")
 
@@ -53,6 +55,7 @@ DEFAULTS = {
     "status_line": {k: True for k in STATUS_ITEMS},
     "panel": {"sections": list(PANEL_SECTIONS), "auto_open": True},
     "reopen_tabs": True, "confirm_close": "running", "kitty_ctrl_keys": True, "scrollback": 20000, "bell": False,
+    "tab_close_buttons": False, "panel_close_buttons": False,
     "shortcuts": {},
 }
 
