@@ -147,22 +147,37 @@ def is_image(path: str) -> bool:
     return Path(path).suffix.lower() in IMAGE_SUFFIXES
 
 
+def project_root(path: str, run=subprocess.run) -> str | None:
+    """The folder of the repository (or worktree) the file is in, as git sees it."""
+    folder = path if os.path.isdir(path) else os.path.dirname(path) or "."
+    try:
+        r = run(["git", "-C", folder, "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=3)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    top = r.stdout.strip() if r.returncode == 0 else ""
+    return top or None
+
+
 def editor_command(path: str, line: int | None, choice: str, which=shutil.which,
-                   env: dict | None = None) -> list[str] | None:
+                   env: dict | None = None, root: str | None = None) -> list[str] | None:
     """The command that opens `path` (at `line`) in the chosen editor.
 
-    None means "let the desktop open it" (xdg-open / gio). "terminal" gives the
-    terminal editor's command; the caller runs it in a kitty window."""
+    With `root` (the file's repository), VS Code and Zed open that folder too: the
+    window that already has it gets the file and comes forward; otherwise a new
+    window opens with the whole project. None means "let the desktop open it"
+    (xdg-open / gio). "terminal" gives the terminal editor's command; the caller
+    runs it in a kitty window."""
     env = os.environ if env is None else env
     at = f"{path}:{line}" if line else path
+    folder = [root] if root else []
 
     def vscode():
         exe = which("code") or which("codium")
-        return [exe, "-g", at] if exe else None
+        return [exe, *folder, "-g", at] if exe else None
 
     def zed():
         exe = which("zed") or which("zeditor")
-        return [exe, at] if exe else None
+        return [exe, *folder, at] if exe else None
 
     def sublime():
         exe = which("subl")
@@ -201,7 +216,7 @@ def open_target(path: str, line: int | None, choice: str, kitty_socket: str | No
     if is_image(path):
         desktop_open(path)
         return
-    cmd = editor_command(path, line, choice)
+    cmd = editor_command(path, line, choice, root=project_root(path))
     if cmd is None:
         desktop_open(path)
     elif choice == "terminal":

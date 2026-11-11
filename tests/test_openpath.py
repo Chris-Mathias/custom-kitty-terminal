@@ -106,6 +106,18 @@ class EditorCommandTest(unittest.TestCase):
         self.assertEqual(cmd, ["nvim", "+7", "/p/a.rs"])
         self.assertEqual(op.editor_command("/p/a.rs", None, "terminal", self.which(), env={}), ["nano", "/p/a.rs"])
 
+    def test_project_folder_opens_with_the_file(self):
+        cmd = op.editor_command("/r/src/a.rs", 3, "vscode", self.which("code"), root="/r")
+        self.assertEqual(cmd, ["/usr/bin/code", "/r", "-g", "/r/src/a.rs:3"])
+        self.assertEqual(op.editor_command("/r/a.rs", None, "zed", self.which("zed"), root="/r"),
+                         ["/usr/bin/zed", "/r", "/r/a.rs"])
+
+    def test_project_root_from_git(self):
+        ok = lambda *a, **k: type("R", (), {"returncode": 0, "stdout": "/r\n"})()  # noqa: E731
+        no = lambda *a, **k: type("R", (), {"returncode": 128, "stdout": ""})()  # noqa: E731
+        self.assertEqual(op.project_root("/r/src/a.rs", ok), "/r")
+        self.assertIsNone(op.project_root("/tmp/a.rs", no))
+
     def test_chosen_editor_missing(self):
         self.assertIsNone(op.editor_command("/p/a.rs", 1, "sublime", self.which("code")))
 
