@@ -11,8 +11,9 @@ from kitty.fast_data_types import Screen
 from kitty.tab_bar import DrawData, ExtraData, TabBarData, as_rgb, draw_tab_with_powerline
 from kitty.utils import color_as_int
 
-# The emoji form of ⚙ (U+FE0F) is drawn two cells wide, so it is easier to see and click.
-GEAR = " ⚙\ufe0f "
+# The plain ⚙ is spread over two cells (narrow_symbols in tabs.conf), so it is
+# easier to see and click; the space after it gives it room.
+GEAR = " ⚙  "
 GEAR_CELLS = 4
 MENU = os.path.expanduser("~/.local/bin/ct-config")
 GEAR_ENABLED = False
@@ -89,6 +90,9 @@ def draw_tab(
         if drawn:
             fg, bg = screen.cursor.fg, screen.cursor.bg
             screen.cursor.bg = as_rgb(color_as_int(draw_data.default_bg))
+            # A shortened title leaves its overflow past the "…"; kitty clears it
+            # only from where the cursor ends, so clear it here before jumping ahead.
+            screen.erase_in_line(0, False)
             screen.cursor.x = start
             screen.cursor.fg = as_rgb(color_as_int(draw_data.inactive_fg))
             screen.draw(GEAR)
