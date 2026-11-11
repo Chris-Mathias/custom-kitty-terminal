@@ -37,7 +37,7 @@ const SETTINGS = '/home/teste/.config/custom-kitty-terminal/settings.json'
 type On = Parameters<Parameters<typeof test>[1]>[1]
 type Api = Parameters<Parameters<typeof test>[1]>[0]
 
-async function mountPanel($: Api, on: On, files: Record<string, string>) {
+async function mountPanel($: Api, on: On, files: Record<string, string>, status = STATUS) {
   on('command.register', () => ({ value: { command: 'panel' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
@@ -71,7 +71,7 @@ async function mountPanel($: Api, on: On, files: Record<string, string>) {
             : argv.includes('-C')
               ? ' M a.rs\n M b.rs\n'
               : argv.includes('status')
-                ? STATUS
+                ? status
                 : NUMSTAT
     return { value: { exitCode: 0, stdout, stderr: '' } }
   })
@@ -132,5 +132,13 @@ test('the panel falls back to English when nothing can be read', async ($, on) =
   const { ui, text } = await mountPanel($, on, {})
   expect(await text(/^TASKS/)).toBe('TASKS 0/2')
   expect(await text(/Cargo\.toml/)).toBe('R Cargo.toml')
+  await ui.unmount()
+})
+
+test('the git section lists every changed file (the pane scrolls)', async ($, on) => {
+  const many = '## main\n' + Array.from({ length: 12 }, (_, i) => ` M src/file${i}.rs`).join('\n') + '\n'
+  const { ui, text } = await mountPanel($, on, {}, many)
+  expect(await text(/file11\.rs/)).toBe('M  file11.rs src')
+  expect(await text(/more$/)).toBeUndefined()
   await ui.unmount()
 })

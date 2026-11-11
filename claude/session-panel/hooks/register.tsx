@@ -26,11 +26,9 @@ const EN = {
   'panel.nothing_changed': 'nothing changed',
   'panel.file': 'file',
   'panel.files_count': 'files',
-  'panel.others': 'more',
   'panel.none': 'none',
   'panel.none_yet': 'none yet',
   'panel.more_tasks': 'tasks',
-  'panel.more_files': 'files',
   'panel.detached_head': 'detached HEAD',
   'panel.kitty_switch_failed': "couldn't switch tabs",
   'panel.command_description': 'Opens the session panel (sessions, git, tasks, files)',
@@ -462,13 +460,12 @@ export const register: Register = on => {
             <Text color="error">−{g.removed}</Text>
           </Text>
         )}
-        {g.files.slice(0, 5).map(file => (
+        {g.files.map(file => (
           <Text>
             <Text color={GIT_COLOR(file.status)}>{file.status.padEnd(2)}</Text> {fileLabel(file.path, width - 3).base}
             {fileLabel(file.path, width - 3).dir && <Text dimColor> {fileLabel(file.path, width - 3).dir}</Text>}
           </Text>
         ))}
-        {g.files.length > 5 && <Text dimColor>+{g.files.length - 5} {S['panel.others']}</Text>}
         {g.worktrees.map(wt => (
           <Text>
             <Text color="permission">⊞</Text> <Text color="claude">{fitHead(branchName(wt.branch), width - 8)}</Text>
@@ -494,22 +491,18 @@ export const register: Register = on => {
         </Box>
       )
 
-    // FILES: takes whatever height is left
-    const used =
-      12 + (s?.length ?? 1) + Math.min(t.length || 1, 11) + Math.min(g?.files.length ?? 0, 6) + (g?.worktrees.length ?? 0)
-    const room = Math.max(3, (e.viewport?.rows ?? 40) - used)
+    // FILES: every one (the pane scrolls when it doesn't fit)
     const fileRows =
       f.length === 0 ? (
         <Text dimColor>{S['panel.none_yet']}</Text>
       ) : (
         <Box flexDirection="column">
-          {f.slice(0, room).map(item => (
+          {f.map(item => (
             <Text>
               <Text color={TOUCH_COLOR[item.kind]}>{TOUCH_MARK[item.kind]}</Text> {fileLabel(item.path, width - 2).base}
               {fileLabel(item.path, width - 2).dir && <Text dimColor> {fileLabel(item.path, width - 2).dir}</Text>}
             </Text>
           ))}
-          {f.length > room && <Text dimColor>+{f.length - room} {S['panel.more_files']}</Text>}
         </Box>
       )
 
