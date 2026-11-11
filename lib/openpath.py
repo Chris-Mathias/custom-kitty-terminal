@@ -86,6 +86,39 @@ def target_at_cell(line: str, x: int) -> Target | None:
     return target_at(line, index_at_cell(line, x))
 
 
+# kitty's image placeholder: an image drawn with Unicode placeholders (as Claude Code
+# draws the side panel's thumbnails) fills its cells with this character.
+IMAGE_PLACEHOLDER = "\U0010eeee"
+
+
+def _cell_of(text: str, index: int) -> int:
+    return sum(_cells(ch) for ch in text[:index])
+
+
+def image_at_cell(rows: list[str], y: int, x: int) -> Target | None:
+    """The [Image #N] whose thumbnail covers row `y`, column `x`.
+
+    The side panel draws each pasted image right under its "[Image #N]" label:
+    go up through the image's rows, then read the label on the row above."""
+    def on_image(row: str) -> bool:
+        i = index_at_cell(row, x)
+        return i < len(row) and row[i] == IMAGE_PLACEHOLDER
+
+    if not (0 <= y < len(rows)) or not on_image(rows[y]):
+        return None
+    top = y
+    while top > 0 and on_image(rows[top - 1]):
+        top -= 1
+    if top == 0:
+        return None
+    label = rows[top - 1]
+    best = None
+    for m in _IMAGE.finditer(label):
+        if _cell_of(label, m.start()) <= x:
+            best = m
+    return Target("image", best.group(1)) if best else None
+
+
 def resolve(path: str, dirs: list[str]) -> str | None:
     """The existing file `path` names, looked up as written and in each folder of `dirs`."""
     candidates = [path]

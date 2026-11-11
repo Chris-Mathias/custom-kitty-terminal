@@ -62,6 +62,33 @@ class CellTest(unittest.TestCase):
         self.assertIsNone(op.target_at_cell("ab", 5))
 
 
+class ImageThumbnailTest(unittest.TestCase):
+    P = op.IMAGE_PLACEHOLDER + "\u0305\u0305"  # a placeholder cell with its row/column marks
+
+    def rows(self):
+        left = "chat text here".ljust(10)
+        return [
+            left + "│ IMAGES",
+            left + "│ [Image #12]",
+            left + "│ " + self.P * 6,
+            left + "│ " + self.P * 6,
+            left + "│",
+            left + "│ [Image #11]",
+            left + "│ " + self.P * 6,
+        ]
+
+    def test_click_on_the_thumbnail_finds_its_label(self):
+        rows = self.rows()
+        x = len("chat text here".ljust(10)) + 4  # inside the picture
+        self.assertEqual(op.image_at_cell(rows, 3, x), op.Target("image", "12"))
+        self.assertEqual(op.image_at_cell(rows, 6, x), op.Target("image", "11"))
+
+    def test_not_on_a_thumbnail(self):
+        rows = self.rows()
+        self.assertIsNone(op.image_at_cell(rows, 4, 14))
+        self.assertIsNone(op.image_at_cell(rows, 3, 2))  # the chat side of that row
+
+
 class ResolveTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
