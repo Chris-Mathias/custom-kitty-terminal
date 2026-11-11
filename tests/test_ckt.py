@@ -113,6 +113,13 @@ class ThemeTest(unittest.TestCase):
                 self.assertTrue(claude["name"])
                 self.assertIsInstance(claude["overrides"], dict)
 
+    def test_tab_bar_blends_with_background(self):
+        for theme in ckt.THEMES:
+            with self.subTest(theme=theme):
+                conf = dict(line.split(None, 1) for line in (REPO / "themes" / theme / "kitty.conf").read_text().splitlines()
+                            if line.strip() and not line.startswith("#"))
+                self.assertEqual(conf["tab_bar_background"].strip(), conf["background"].strip())
+
     def test_light_theme_is_light(self):
         self.assertEqual(json.loads((REPO / "themes/light/claude.json").read_text())["base"], "light")
 
