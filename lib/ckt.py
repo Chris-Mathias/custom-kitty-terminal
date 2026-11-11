@@ -12,7 +12,7 @@ import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-LANGUAGES = ("en", "pt")
+LANGUAGES = ("en", "pt", "zh")
 THEMES = ("fedora", "catppuccin", "tokyo-night", "dracula", "gruvbox", "light", "noctalia")
 FONT_SIZES = range(8, 25)
 PANEL_SECTIONS = ("sessions", "agents", "tasks", "git", "files")

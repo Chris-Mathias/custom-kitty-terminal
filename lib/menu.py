@@ -14,7 +14,7 @@ from typing import Callable, NamedTuple
 import ckt
 import shortcuts as sc
 
-LANGUAGE_NAMES = {"en": "English", "pt": "Português"}
+LANGUAGE_NAMES = {"en": "English", "pt": "Português", "zh": "中文"}
 
 
 class Node(NamedTuple):

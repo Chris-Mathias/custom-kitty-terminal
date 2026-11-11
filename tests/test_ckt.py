@@ -79,7 +79,9 @@ class I18nTest(unittest.TestCase):
     def test_i18n_key_sets_match(self):
         en = json.loads((REPO / "i18n/en.json").read_text())
         pt = json.loads((REPO / "i18n/pt.json").read_text())
+        zh = json.loads((REPO / "i18n/zh.json").read_text())
         self.assertEqual(set(en), set(pt))
+        self.assertEqual(set(en), set(zh))
 
 
 class ThemeTest(unittest.TestCase):

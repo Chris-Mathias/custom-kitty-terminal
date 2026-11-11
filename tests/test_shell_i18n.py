@@ -32,7 +32,7 @@ class ShellI18nTest(unittest.TestCase):
                          "rate_limits": {"seven_day": {"used_percentage": 15}}})
 
     def test_statusline_week_label(self):
-        for lang, label in (("en", "wk "), ("pt", "sem ")):
+        for lang, label in (("en", "wk "), ("pt", "sem "), ("zh", "周 ")):
             with self.subTest(lang=lang):
                 self.lang(lang)
                 self.assertIn(label, self.run_script("claude/statusline.sh", self.STATUS)[1])
@@ -73,7 +73,7 @@ class ShellI18nTest(unittest.TestCase):
 
     def test_subagent_fallback_name(self):
         tasks = json.dumps({"cwd": "/tmp", "columns": 100, "tasks": [{"id": "1", "label": "doing"}]})
-        for lang, name in (("en", "agent"), ("pt", "agente")):
+        for lang, name in (("en", "agent"), ("pt", "agente"), ("zh", "代理")):
             with self.subTest(lang=lang):
                 self.lang(lang)
                 line = json.loads(self.run_script("claude/subagent-statusline.sh", tasks)[1].splitlines()[0])

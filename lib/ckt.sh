@@ -1,6 +1,6 @@
 # Shell side of lib/ckt.py: reads the user's settings, translations and theme
 # palette. Source it from bash; needs jq. Every lookup falls back to defaults.
-#   ckt_lang          -> en | pt
+#   ckt_lang          -> en | pt | zh
 #   ckt_theme         -> fedora | catppuccin | ...
 #   ckt_t <key>       -> translated text (English, then the key itself, as fallbacks)
 #   ckt_color <name>  -> ANSI foreground escape for a palette color
@@ -16,7 +16,7 @@ _ckt_setting() { # key default allowed...
   printf '%s' "$def"
 }
 
-ckt_lang() { _ckt_setting language en en pt; }
+ckt_lang() { _ckt_setting language en en pt zh; }
 ckt_theme() { _ckt_setting theme fedora fedora catppuccin tokyo-night dracula gruvbox light noctalia; }
 
 ckt_t() {

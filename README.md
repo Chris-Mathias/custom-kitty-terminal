@@ -3,7 +3,7 @@
 A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claude.com) setup for working with many sessions and many repositories at once, on Linux. Made on Fedora with GNOME; the installer also handles Debian, Ubuntu, Linux Mint, Arch and openSUSE, and the GNOME, KDE Plasma and Cinnamon desktops.
 
 - **Looks like GNOME's terminal out of the box**: GNOME palette, Adwaita Mono font (the system's monospace font when it isn't available), the desktop's own title bar.
-- **Settings menu** (`ct config`, `Ctrl+Shift+F2` or the ⚙ at the right of the tab bar): language (English or Português), look, Claude Code, behavior and every shortcut — see [Settings](#settings).
+- **Settings menu** (`ct config`, `Ctrl+Shift+F2` or the ⚙ at the right of the tab bar): language (English, Português or 中文), look, Claude Code, behavior and every shortcut — see [Settings](#settings).
 - **Seven themes**, each changing kitty and Claude Code together: Fedora, Catppuccin (Mocha), Tokyo Night, Dracula, Gruvbox (dark), Light and Noctalia.
 - **Slanted tabs** on top, with the title Claude gives each session and a `+` button.
 - **Reopens as you left it**: when kitty starts, last time's tabs come back and each Claude resumes the same conversation.
@@ -42,7 +42,7 @@ cd custom-kitty-terminal
 ./install.sh
 ```
 
-`install.sh` links each file of this repository into place (symbolic links), keeps whatever was there with a `.bak-<date>` suffix, merges only the keys this project owns into `~/.claude/settings.json` (theme, spinner verbs, status lines; a response style only if you turn it on) and adds a small `claude()` function to `~/.zshrc` and/or `~/.bashrc` so that `claude` opens with the side panel. It starts in English; switch to Portuguese with `ct config`. To update later: `git pull`, then `./install.sh` again (it regenerates the files the settings menu writes).
+`install.sh` links each file of this repository into place (symbolic links), keeps whatever was there with a `.bak-<date>` suffix, merges only the keys this project owns into `~/.claude/settings.json` (theme, spinner verbs, status lines; a response style only if you turn it on) and adds a small `claude()` function to `~/.zshrc` and/or `~/.bashrc` so that `claude` opens with the side panel. It starts in English; switch to Portuguese or Chinese with `ct config`. To update later: `git pull`, then `./install.sh` again (it regenerates the files the settings menu writes).
 
 Close and reopen kitty. The first time it opens an empty tab; from then on it saves and reopens the tabs by itself.
 
