@@ -11,7 +11,9 @@ from kitty.fast_data_types import Screen
 from kitty.tab_bar import DrawData, ExtraData, TabBarData, as_rgb, draw_tab_with_powerline
 from kitty.utils import color_as_int
 
-GEAR = " ⚙ "
+# The emoji form of ⚙ (U+FE0F) is drawn two cells wide, so it is easier to see and click.
+GEAR = " ⚙\ufe0f "
+GEAR_CELLS = 4
 MENU = os.path.expanduser("~/.local/bin/ct-config")
 GEAR_ENABLED = False
 
@@ -25,7 +27,7 @@ def _set_gear_drawn(screen, drawn: bool) -> None:
 
 def gear_start(columns: int) -> int:
     """First cell of the ⚙ button; the last cell of the bar stays blank."""
-    return columns - len(GEAR) - 1
+    return columns - GEAR_CELLS - 1
 
 
 def _open_menu(tab_manager) -> None:
