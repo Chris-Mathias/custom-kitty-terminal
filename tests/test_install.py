@@ -143,6 +143,13 @@ class InstallTest(unittest.TestCase):
         self.install()
         self.assertEqual(json.loads(self.p(".claude/settings.json").read_text())["outputStyle"], "Explanatory")
 
+    def test_style_cleanup_alone_has_no_upgrade_note(self):
+        self.p(".claude/output-styles").mkdir(parents=True)
+        self.p(".claude/output-styles/concise-english.md").symlink_to(REPO / "claude/output-styles/concise-english.md")
+        out = self.install()
+        self.assertFalse(os.path.lexists(self.p(".claude/output-styles/concise-english.md")))
+        self.assertNotIn("Ctrl+N", out)
+
     def test_fresh_install_has_no_upgrade_note(self):
         self.assertNotIn("Ctrl+N", self.install())
 

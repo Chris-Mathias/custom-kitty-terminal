@@ -63,7 +63,10 @@ for f in abas.conf fechar_aba.py fechar-aba-dialogo.sh salvar_sessao.py; do unli
 for f in claude-painel claude-restaurar; do unlink_old "$HOME/.local/bin/$f"; done
 unlink_old "$HOME/.local/share/claude-mods/painel-sessao"
 # Response styles this project used to install (it no longer touches Claude's response style).
+# (Not part of the Portuguese upgrade, so it doesn't count for the restart note below.)
+was_migrated=$migrated
 for f in portugues-conciso.md concise-english.md; do unlink_old "$HOME/.claude/output-styles/$f"; done
+migrated=$was_migrated
 
 echo; echo "== kitty (~/.config/kitty)"
 for f in kitty.conf tabs.conf tab_bar.py close_tab.py close-tab-dialog.sh save_session.py; do
