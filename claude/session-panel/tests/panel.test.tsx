@@ -5,7 +5,7 @@ const PANE = {
   component: 'Pane',
   requestId: 'session-panel',
   props: {
-    title: 'Sessão',
+    title: 'Session',
     isFocused: false,
     bodyColumns: 40,
     placement: 'dock',
