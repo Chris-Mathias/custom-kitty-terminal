@@ -4,6 +4,9 @@
 # Text and code open in your editor through ckt-open (ct config → Behavior → Editor),
 # images and the rest in the desktop's default app. Image previews show right in
 # kitty (yazi draws them with kitty's graphics protocol).
+#
+# Openers use yazi's own placeholders: %s is every selected file, %s1 the first.
+# orphan = true: the editor or viewer is detached, so yazi doesn't wait on it.
 
 [mgr]
 show_hidden = false
@@ -13,8 +16,19 @@ linemode = "size"
 
 [opener]
 edit = [
-  { run = 'ckt-open "$@"', desc = "Editor (ckt-open)", for = "unix" },
+  { run = "ckt-open %s", desc = "Editor (ckt-open)", orphan = true, for = "unix" },
 ]
 open = [
-  { run = 'xdg-open "$1"', desc = "Open", orphan = true, for = "linux" },
+  { run = "xdg-open %s1", desc = "Open", orphan = true, for = "linux" },
+]
+
+[open]
+# Code by its extension: some are detected under odd types (.tsx as a game map,
+# .ts as a video stream) and would otherwise go to the "open" fallback.
+prepend_rules = [
+  { url = "*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro}", use = ["edit", "reveal"] },
+  { url = "*.{rs,go,py,rb,php,java,kt,kts,scala,swift,c,h,cc,cpp,hpp,cs,lua,zig,dart,ex,exs,hs,ml}", use = ["edit", "reveal"] },
+  { url = "*.{sh,bash,zsh,fish,toml,yaml,yml,json,jsonc,ini,conf,env,xml,md,mdx,txt,sql,graphql,gql,prisma,proto}", use = ["edit", "reveal"] },
+  { url = "*.{css,scss,sass,less,html,htm,lock,gitignore,dockerfile}", use = ["edit", "reveal"] },
+  { url = "*.mk", use = ["edit", "reveal"] },
 ]
