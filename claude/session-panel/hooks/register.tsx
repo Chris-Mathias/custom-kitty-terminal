@@ -85,7 +85,7 @@ async function loadStrings($: Engine): Promise<Strings> {
   try {
     const settings = await readSettings($)
     await update($, layout, () => layoutOf(settings))
-    const lang = settings.language === 'pt' ? 'pt' : 'en'
+    const lang = settings.language === 'pt' || settings.language === 'zh' ? settings.language : 'en'
     const real = (await $.fs.stat($.plugin.root, { resolve: true })).realPath
     if (!real) return EN
     const repo = real.split('/').slice(0, -2).join('/')
