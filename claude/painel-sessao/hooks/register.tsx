@@ -1,0 +1,458 @@
+import { atom, read, update } from 'claude-code'
+import type { EngineInterface as Engine, Register } from 'claude-code'
+
+import type { FileTouch, GitInfo, SessionRow, Todo, TodoStatus, TouchKind, Worktree } from '../types'
+
+const PANE = 'painel-sessao'
+const TITLE = 'Sessão'
+// Largura pedida para a lateral (o que você arrastar com o mouse vale mais).
+const PANE_COLUMNS = 30
+// Fundo transparente: o painel usa a mesma cor de fundo do terminal.
+const OPEN = { id: PANE, title: TITLE, columns: PANE_COLUMNS, backgroundColor: 'transparent' } as const
+
+const todos = atom({ plugin: 'painel-sessao', key: 'todos' } as const, [] as Todo[], { shape: 'todos-1' })
+const files = atom({ plugin: 'painel-sessao', key: 'files' } as const, [] as FileTouch[], { shape: 'files-1' })
+const git = atom({ plugin: 'painel-sessao', key: 'git' } as const, null as GitInfo | null, { shape: 'git-2' })
+const sessions = atom({ plugin: 'painel-sessao', key: 'sessions' } as const, null as SessionRow[] | null, {
+  shape: 'sessions-4',
+})
+
+// Ferramentas que podem mudar o repositório: depois delas o git é relido.
+const MUTATING = new Set(['Bash', 'Edit', 'Write', 'NotebookEdit', 'MultiEdit'])
+const KIND_RANK: Record<TouchKind, number> = { leu: 0, editou: 1, criou: 2 }
+
+// ---------- git ----------
+async function readGit($: Engine): Promise<GitInfo> {
+  const empty: GitInfo = { isRepo: false, branch: '', ahead: 0, behind: 0, files: [], added: 0, removed: 0, worktrees: [] }
+  const st = await $.process.run(['git', '--no-optional-locks', 'status', '--porcelain=v1', '-b'], { timeoutMs: 5000 })
+  if (st.exitCode !== 0) return empty
+
+  const lines = st.stdout.split('\n').filter(Boolean)
+  const head = lines[0]?.startsWith('## ') ? lines.shift()!.slice(3) : ''
+  let branch = (head.split('...')[0] ?? '').replace(/^No commits yet on /, '')
+  if (branch.startsWith('HEAD')) branch = 'HEAD solto'
+  const ahead = Number(/ahead (\d+)/.exec(head)?.[1] ?? 0)
+  const behind = Number(/behind (\d+)/.exec(head)?.[1] ?? 0)
+  const changed = lines.map(l => ({ status: l.slice(0, 2).trim() || '?', path: l.slice(3) }))
+
+  let added = 0
+  let removed = 0
+  const diff = await $.process.run(['git', '--no-optional-locks', 'diff', '--numstat', 'HEAD'], { timeoutMs: 5000 })
+  if (diff.exitCode === 0) {
+    for (const row of diff.stdout.split('\n')) {
+      const [a, r] = row.split('\t')
+      if (/^\d+$/.test(a ?? '')) added += Number(a)
+      if (/^\d+$/.test(r ?? '')) removed += Number(r)
+    }
+  }
+  return { isRepo: true, branch, ahead, behind, files: changed, added, removed, worktrees: await readWorktrees($) }
+}
+
+// Worktrees além da principal (ex.: as dos subagentes em .claude/worktrees/)
+const shortAgent = (s: string) => s.replace(/(agent-[0-9a-f]{6})[0-9a-f]+/, '$1')
+async function readWorktrees($: Engine): Promise<Worktree[]> {
+  const top = await $.process.run(['git', 'rev-parse', '--show-toplevel'], { timeoutMs: 5000 })
+  const list = await $.process.run(['git', 'worktree', 'list', '--porcelain'], { timeoutMs: 5000 })
+  if (top.exitCode !== 0 || list.exitCode !== 0) return []
+  const main = top.stdout.trim()
+  const found: { path: string; branch: string }[] = []
+  for (const block of list.stdout.split('\n\n')) {
+    const path = /^worktree (.+)$/m.exec(block)?.[1]
+    if (!path || path === main) continue
+    const branch = /^branch refs\/heads\/(.+)$/m.exec(block)?.[1] ?? 'HEAD solto'
+    found.push({ path, branch })
+  }
+  return Promise.all(
+    found.slice(0, 6).map(async wt => {
+      const st = await $.process.run(['git', '--no-optional-locks', '-C', wt.path, 'status', '--porcelain'], {
+        timeoutMs: 5000,
+      })
+      return {
+        name: shortAgent(wt.path.split('/').pop() ?? wt.path),
+        branch: shortAgent(wt.branch),
+        changes: st.exitCode === 0 ? st.stdout.split('\n').filter(Boolean).length : 0,
+      }
+    }),
+  )
+}
+
+async function refreshGit($: Engine) {
+  try {
+    const info = await readGit($)
+    await update($, git, () => info)
+  } catch {
+    // git ausente ou lento: mantém o último valor
+  }
+}
+
+// ---------- sessões abertas (claude agents --json) ----------
+// Título que o Claude dá a cada sessão (o mesmo da aba do terminal).
+// Lido do fim da transcrição; formato interno, por isso há o nome como reserva.
+const titles = new Map<string, { title: string; at: number }>()
+async function sessionTitles($: Engine, ids: string[]): Promise<Map<string, string>> {
+  const now = Date.now()
+  const stale = ids.filter(id => (titles.get(id)?.at ?? 0) < now - 60000)
+  if (stale.length) {
+    const script =
+      'for id in "$@"; do f=$(ls "$HOME"/.claude/projects/*/"$id".jsonl 2>/dev/null | head -1); ' +
+      '[ -n "$f" ] || continue; ' +
+      't=$(grep -oE \'"(customTitle|aiTitle)":"[^"]*"\' "$f" | tail -1 | sed \'s/^"[a-zA-Z]*":"//; s/"$//\'); ' +
+      'printf "%s\\t%s\\n" "$id" "$t"; done'
+    const run = await $.process.run(['sh', '-c', script, 'titulos', ...stale], { timeoutMs: 10000 })
+    for (const id of stale) titles.set(id, { title: titles.get(id)?.title ?? '', at: now })
+    for (const line of run.stdout.split('\n')) {
+      const [id, title] = line.split('\t')
+      if (id && title) titles.set(id, { title, at: now })
+    }
+  }
+  return new Map(ids.map(id => [id, titles.get(id)?.title ?? '']))
+}
+
+// Em qual painel do tmux cada sessão roda: sobe pelos processos pais do
+// claude até achar o processo de um painel do tmux (list-panes -a).
+const PANES_SCRIPT = String.raw`panes=$(tmux list-panes -a -F "#{pane_pid} #{pane_id}" 2>/dev/null) || exit 0; for p in "$@"; do q=$p; while [ -n "$q" ] && [ "$q" -gt 1 ]; do m=$(printf "%s\n" "$panes" | awk -v q="$q" "\$1==q{print \$2}"); if [ -n "$m" ]; then printf "%s\t%s\n" "$p" "$m"; break; fi; q=$(awk "{print \$4}" /proc/$q/stat 2>/dev/null); done; done; true`
+
+async function tmuxPanes($: Engine, pids: number[]): Promise<Map<number, string>> {
+  const run = await $.process.run(['sh', '-c', PANES_SCRIPT, 'paineis', ...pids.map(String)], { timeoutMs: 5000 })
+  const out = new Map<number, string>()
+  for (const line of run.stdout.split('\n')) {
+    const [pid, pane] = line.split('\t')
+    if (pid && pane) out.set(Number(pid), pane)
+  }
+  return out
+}
+
+// Em qual janela do kitty cada sessão roda: o kitty põe KITTY_WINDOW_ID e
+// KITTY_LISTEN_ON no ambiente do shell, e o claude herda os dois.
+const KITTY_SCRIPT = String.raw`for p in "$@"; do e=$(tr "\0" "\n" < /proc/$p/environ 2>/dev/null); w=$(printf "%s\n" "$e" | sed -n "s/^KITTY_WINDOW_ID=//p"); s=$(printf "%s\n" "$e" | sed -n "s/^KITTY_LISTEN_ON=//p"); [ -n "$w" ] && [ -n "$s" ] && printf "%s\t%s\t%s\n" "$p" "$w" "$s"; done; true`
+
+async function kittyWindows($: Engine, pids: number[]): Promise<Map<number, { window: string; socket: string }>> {
+  const run = await $.process.run(['sh', '-c', KITTY_SCRIPT, 'kitty', ...pids.map(String)], { timeoutMs: 5000 })
+  const out = new Map<number, { window: string; socket: string }>()
+  for (const line of run.stdout.split('\n')) {
+    const [pid, window, socket] = line.split('\t')
+    if (pid && window && socket) out.set(Number(pid), { window, socket })
+  }
+  return out
+}
+
+async function focusKitty($: Engine, k: { window: string; socket: string }) {
+  const run = await $.process.run(['kitten', '@', '--to', k.socket, 'focus-window', '--match', `id:${k.window}`], {
+    timeoutMs: 5000,
+  })
+  if (run.exitCode !== 0) $.ui.toast(`kitty: ${run.stderr.trim() || 'não consegui trocar de aba'}`)
+}
+
+// Clique numa sessão: troca para ela e depois reabre o painel, para o
+// anel de foco não ficar parado na linha clicada (o quadrado branco).
+async function pressSession($: Engine, kitty?: { window: string; socket: string }, pane?: string) {
+  if (kitty) await focusKitty($, kitty)
+  else if (pane) await switchTo($, pane)
+  await $.ui.close({ id: PANE })
+  await $.ui.open(OPEN)
+}
+
+// Troca o tmux para a janela/painel da sessão escolhida.
+async function switchTo($: Engine, pane: string) {
+  const sw = await $.process.run(['tmux', 'switch-client', '-t', pane], { timeoutMs: 5000 })
+  await $.process.run(['tmux', 'select-window', '-t', pane], { timeoutMs: 5000 })
+  await $.process.run(['tmux', 'select-pane', '-t', pane], { timeoutMs: 5000 })
+  if (sw.exitCode !== 0 && !/no current client/i.test(sw.stderr)) $.ui.toast(`tmux: ${sw.stderr.trim()}`)
+}
+
+type AgentJson = { pid?: number; sessionId?: string; name?: string; cwd?: string; status?: string; kind?: string; startedAt?: number }
+
+async function refreshSessions($: Engine) {
+  try {
+    const [run, self] = await Promise.all([
+      $.process.run(['claude', 'agents', '--json'], { timeoutMs: 15000 }),
+      $.session.id(),
+    ])
+    if (run.exitCode !== 0) return
+    const raw = (JSON.parse(run.stdout) as AgentJson[]).filter(s => s.sessionId)
+    const pids = raw.map(s => s.pid ?? 0).filter(Boolean)
+    const [named, panes, kittys] = await Promise.all([
+      sessionTitles($, raw.map(s => s.sessionId!)),
+      tmuxPanes($, pids),
+      kittyWindows($, pids),
+    ])
+    const list = raw
+      .sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0))
+      .map(
+        (s): SessionRow => ({
+          id: s.sessionId!,
+          name: s.name ?? s.sessionId!.slice(0, 8),
+          title: named.get(s.sessionId!) || s.name || s.sessionId!.slice(0, 8),
+          folder: (s.cwd ?? '').split('/').filter(Boolean).pop() ?? '',
+          status: s.status ?? '',
+          isBackground: s.kind === 'background',
+          isSelf: s.sessionId === self,
+          tmuxPane: s.pid ? panes.get(s.pid) : undefined,
+          kitty: s.pid ? kittys.get(s.pid) : undefined,
+        }),
+      )
+    await update($, sessions, () => list)
+  } catch {
+    // claude fora do PATH ou saída inesperada: mantém o último valor
+  }
+}
+
+// ---------- arquivos e tarefas ----------
+async function touch($: Engine, rawPath: string, kind: TouchKind) {
+  const cwd = await $.session.cwd()
+  const path = rawPath.startsWith(cwd + '/') ? rawPath.slice(cwd.length + 1) : rawPath
+  await update($, files, list => {
+    const old = list.find(f => f.path === path)
+    const best = old && KIND_RANK[old.kind] > KIND_RANK[kind] ? old.kind : kind
+    return [{ path, kind: best, at: Date.now() }, ...list.filter(f => f.path !== path)].slice(0, 60)
+  })
+}
+
+// ---------- desenho ----------
+// Corta pelo fim, para textos (tarefas, nomes).
+const fitHead = (s: string, n: number) => (s.length <= n ? s : s.slice(0, Math.max(1, n - 1)) + '…')
+
+// Nome do arquivo e, se couber, a pasta onde está (desenhada apagada): "register.tsx hooks"
+const fileLabel = (path: string, n: number): { base: string; dir?: string } => {
+  const parts = path.split('/')
+  const base = parts.pop() ?? path
+  const dir = parts.pop()
+  if (base.length >= n) return { base: fitHead(base, n) }
+  return dir && base.length + 1 + dir.length <= n ? { base, dir } : { base }
+}
+
+const TODO_MARK: Record<TodoStatus, string> = { completed: '✓', in_progress: '◐', pending: '○' }
+const TODO_COLOR: Record<TodoStatus, string> = { completed: 'success', in_progress: '#7dcfff', pending: 'inactive' }
+const TOUCH_MARK: Record<TouchKind, string> = { leu: 'L', editou: 'E', criou: 'N' }
+const TOUCH_COLOR: Record<TouchKind, string> = { leu: 'inactive', editou: 'warning', criou: 'success' }
+const GIT_COLOR = (s: string) => (s === '??' || s.includes('A') ? 'success' : s.includes('D') ? 'error' : 'warning')
+const SESSION_LOOK = (status: string): { mark: string; color: string } =>
+  status === 'busy'
+    ? { mark: '◐', color: '#7dcfff' }
+    : status === 'idle'
+      ? { mark: '○', color: 'inactive' }
+      : { mark: '●', color: 'warning' } // esperando você ou outro estado
+
+export const register: Register = on => {
+  on('session.start', async ($, e, next) => {
+    await $.command.register({ name: 'painel', description: 'Abre o painel da sessão (sessões, git, tarefas, arquivos)' })
+    void $.ui.open(OPEN)
+
+    void refreshGit($)
+    void refreshSessions($)
+    $.clock.every(15000, () => void refreshGit($))
+    // Sessões: o estado (trabalhando/parada) é relido a cada 4 s; abrir ou
+    // fechar uma sessão é percebido em ~1 s, olhando a pasta onde o Claude Code
+    // registra cada sessão aberta (~/.claude/sessions, um arquivo por processo).
+    $.clock.every(4000, () => void refreshSessions($))
+    const home = await $.env.get('HOME')
+    if (home) {
+      let last = ''
+      $.clock.every(1000, () => {
+        void $.fs
+          .list(`${home}/.claude/sessions`)
+          .then(entries => {
+            const now = entries
+              .map(x => x.name)
+              .filter(n => n.endsWith('.json'))
+              .sort()
+              .join(',')
+            if (now !== last) {
+              const changed = last !== ''
+              last = now
+              if (changed) void refreshSessions($)
+            }
+          })
+          .catch(() => {})
+      })
+    }
+
+    return next(e)
+  })
+
+  on('command.run', { command: 'painel' }, async $ => {
+    await $.ui.open(OPEN)
+    void refreshGit($)
+    void refreshSessions($)
+    return { text: 'Painel da sessão aberto.' }
+  })
+
+  on('tool.call', async ($, e, next) => {
+    const ran = await next(e)
+    if (ran.deny !== undefined || ran.isError === true) return ran
+
+    try {
+      if (e.tool === 'Read') await touch($, e.file_path, 'leu')
+      else if (e.tool === 'Edit') await touch($, e.file_path, 'editou')
+      else if (e.tool === 'Write') {
+        const created = (ran.result as { type?: string } | undefined)?.type === 'create'
+        await touch($, e.file_path, created ? 'criou' : 'editou')
+      } else if (e.tool === 'NotebookEdit') await touch($, e.notebook_path, 'editou')
+      else if (e.tool === 'TodoWrite') {
+        const list = e.todos.map((t, i) => ({ id: String(i), text: t.content, status: t.status }))
+        await update($, todos, () => list)
+      } else if (e.tool === 'TaskCreate') {
+        const id = (ran.result as { task?: { id?: string } } | undefined)?.task?.id
+        if (id) await update($, todos, list => [...list, { id, text: e.subject, status: 'pending' as TodoStatus }])
+      } else if (e.tool === 'TaskUpdate') {
+        const { taskId, status, subject } = e
+        await update($, todos, list =>
+          status === 'deleted'
+            ? list.filter(t => t.id !== taskId)
+            : list.map(t =>
+                t.id === taskId ? { ...t, text: subject ?? t.text, status: (status as TodoStatus | undefined) ?? t.status } : t,
+              ),
+        )
+      }
+
+      if (MUTATING.has(e.tool)) await refreshGit($)
+    } catch {
+      // o painel nunca atrapalha a ferramenta
+    }
+    return ran
+  }).catch(($, e, next) => next(e))
+
+  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
+    const { Box, Text, Button } = $.ui.resolve(e)
+    // 1 coluna de margem à esquerda
+    const width = Math.max(18, ((e.props as { bodyColumns?: number }).bodyColumns ?? PANE_COLUMNS) - 1)
+    const [s, g, t, f] = await Promise.all([read($, sessions), read($, git), read($, todos), read($, files)])
+
+    const Head = ({ children }: { children: string }) => (
+      <Text dimColor bold>
+        {children}
+      </Text>
+    )
+
+    // SESSÕES
+    const sessionRows = !s ? (
+      <Text dimColor>lendo…</Text>
+    ) : s.length === 0 ? (
+      <Text dimColor>nenhuma aberta</Text>
+    ) : (
+      <Box flexDirection="column">
+        {s.map(row => {
+          const look = SESSION_LOOK(row.status)
+          const tag = row.isBackground ? ' bg' : ''
+          const label = fitHead(row.title, width - 3 - tag.length)
+          const pane = row.tmuxPane
+          const kitty = row.kitty
+          const canSwitch = Boolean(pane || kitty)
+          // No kitty ou no tmux a linha é um botão: clicar troca para a sessão.
+          if (canSwitch && !row.isSelf)
+            return (
+              <Button
+                key={row.id}
+                plain
+                onPress={() => void pressSession($, kitty, pane)}
+              >
+                <Text color={look.color}>{look.mark}</Text> {label}
+                {tag && <Text dimColor>{tag}</Text>}
+              </Button>
+            )
+          return (
+            <Text>
+              <Text color={look.color}>{look.mark}</Text>{' '}
+              <Text color={row.isSelf ? 'claude' : undefined} bold={row.isSelf} dimColor={!canSwitch && !row.isSelf}>
+                {label}
+              </Text>
+              {tag && <Text dimColor>{tag}</Text>}
+            </Text>
+          )
+        })}
+      </Box>
+    )
+
+    // GIT
+    const gitRows = !g ? (
+      <Text dimColor>lendo…</Text>
+    ) : !g.isRepo ? (
+      <Text dimColor>fora de um repositório</Text>
+    ) : (
+      <Box flexDirection="column">
+        <Text>
+          <Text color="claude">⎇ {fitHead(g.branch, width - 10)}</Text>
+          {g.ahead > 0 && <Text color="#7dcfff"> ⇡{g.ahead}</Text>}
+          {g.behind > 0 && <Text color="warning"> ⇣{g.behind}</Text>}
+        </Text>
+        {g.files.length === 0 ? (
+          <Text dimColor>nada alterado</Text>
+        ) : (
+          <Text>
+            {g.files.length} {g.files.length === 1 ? 'arquivo' : 'arquivos'} <Text color="success">+{g.added}</Text>{' '}
+            <Text color="error">−{g.removed}</Text>
+          </Text>
+        )}
+        {g.files.slice(0, 5).map(file => (
+          <Text>
+            <Text color={GIT_COLOR(file.status)}>{file.status.padEnd(2)}</Text> {fileLabel(file.path, width - 3).base}
+            {fileLabel(file.path, width - 3).dir && <Text dimColor> {fileLabel(file.path, width - 3).dir}</Text>}
+          </Text>
+        ))}
+        {g.files.length > 5 && <Text dimColor>+{g.files.length - 5} outros</Text>}
+        {g.worktrees.map(wt => (
+          <Text>
+            <Text color="#7dcfff">⊞</Text> <Text color="claude">{fitHead(wt.branch, width - 8)}</Text>
+            {wt.changes > 0 ? <Text color="warning"> {wt.changes}</Text> : <Text dimColor> ✓</Text>}
+          </Text>
+        ))}
+      </Box>
+    )
+
+    // TAREFAS
+    const done = t.filter(x => x.status === 'completed').length
+    const todoRows =
+      t.length === 0 ? (
+        <Text dimColor>nenhuma</Text>
+      ) : (
+        <Box flexDirection="column">
+          {t.slice(0, 10).map(item => (
+            <Text dimColor={item.status === 'completed'}>
+              <Text color={TODO_COLOR[item.status]}>{TODO_MARK[item.status]}</Text> {fitHead(item.text, width - 2)}
+            </Text>
+          ))}
+          {t.length > 10 && <Text dimColor>+{t.length - 10} tarefas</Text>}
+        </Box>
+      )
+
+    // ARQUIVOS: ocupa o que sobrar da altura
+    const used =
+      12 + (s?.length ?? 1) + Math.min(t.length || 1, 11) + Math.min(g?.files.length ?? 0, 6) + (g?.worktrees.length ?? 0)
+    const room = Math.max(3, (e.viewport?.rows ?? 40) - used)
+    const fileRows =
+      f.length === 0 ? (
+        <Text dimColor>nenhum ainda</Text>
+      ) : (
+        <Box flexDirection="column">
+          {f.slice(0, room).map(item => (
+            <Text>
+              <Text color={TOUCH_COLOR[item.kind]}>{TOUCH_MARK[item.kind]}</Text> {fileLabel(item.path, width - 2).base}
+              {fileLabel(item.path, width - 2).dir && <Text dimColor> {fileLabel(item.path, width - 2).dir}</Text>}
+            </Text>
+          ))}
+          {f.length > room && <Text dimColor>+{f.length - room} arquivos</Text>}
+        </Box>
+      )
+
+    return (
+      <Box flexDirection="column" gap={1} paddingLeft={1}>
+        <Box flexDirection="column">
+          <Head>SESSÕES</Head>
+          {sessionRows}
+        </Box>
+        <Box flexDirection="column">
+          <Head>GIT</Head>
+          {gitRows}
+        </Box>
+        <Box flexDirection="column">
+          <Head>{t.length ? `TAREFAS ${done}/${t.length}` : 'TAREFAS'}</Head>
+          {todoRows}
+        </Box>
+        <Box flexDirection="column">
+          <Head>ARQUIVOS</Head>
+          {fileRows}
+        </Box>
+      </Box>
+    )
+  })
+}

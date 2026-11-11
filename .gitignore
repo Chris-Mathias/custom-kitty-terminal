@@ -1,0 +1,5 @@
+ultima-sessao.kitty-session
+*.tmp
+*.bak-*
+claude/painel-sessao/.claude-plugin/types/
+claude/painel-sessao/tsconfig.json

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# claude-restaurar <sessionId>
+# Usado na abertura do kitty: retoma a conversa do Claude que estava nesta aba.
+# Se essa conversa já estiver aberta em outro lugar (ex.: abriu um segundo
+# kitty), não abre de novo: só deixa o zsh na pasta, com um aviso.
+id=$1
+
+for f in "$HOME"/.claude/sessions/*.json; do
+  [[ -e $f ]] || continue
+  pid=$(basename "$f" .json)
+  if kill -0 "$pid" 2>/dev/null && grep -q "\"sessionId\":\"$id\"" "$f"; then
+    printf '\e[2mEssa conversa do Claude já está aberta em outra janela. Para abrir uma nova: claude-painel\e[0m\n'
+    exec "${SHELL:-/usr/bin/zsh}"
+  fi
+done
+
+exec "$HOME/.local/bin/claude-painel" --resume "$id"

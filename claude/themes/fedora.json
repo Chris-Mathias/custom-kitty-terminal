@@ -1,0 +1,17 @@
+{
+  "name": "Fedora",
+  "base": "dark",
+  "overrides": {
+    "claude": "#51a2da",
+    "promptBorder": "#3c6eb4",
+    "suggestion": "#46597a",
+    "remember": "#c49cf2",
+    "permission": "#7aa2f7",
+    "planMode": "#9ece6a",
+    "autoAccept": "#c49cf2",
+    "bashBorder": "#ff9e64",
+    "success": "#9ece6a",
+    "warning": "#e0af68",
+    "error": "#f7768e"
+  }
+}

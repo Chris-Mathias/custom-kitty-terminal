@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# ct [-a] [pasta] [-- argumentos do claude]
+# Abre uma sessão nova do Claude Code (com o painel lateral).
+#   ct                     -> numa aba nova, na pasta atual
+#   ct ~/Documentos/Projetos/mindustry_rust
+#   ct -a [pasta]          -> na MESMA aba, empilhada: troque pelo painel lateral
+#   ct . -- --continue     -> passa --continue para o claude
+# Dentro do kitty usa abas/janelas do kitty; dentro do tmux, janelas do tmux;
+# fora dos dois, abre uma janela do kitty.
+
+same_tab=0
+if [[ ${1:-} == "-a" || ${1:-} == "--aqui" ]]; then same_tab=1; shift; fi
+
+dir="${1:-$PWD}"
+[[ $dir == "--" ]] && dir="$PWD"
+[[ $# -gt 0 && $1 != "--" ]] && shift
+[[ ${1:-} == "--" ]] && shift
+dir=$(realpath "$dir") || exit 1
+
+runner="$HOME/.local/bin/claude-painel"
+sh_bin=${SHELL:-/usr/bin/zsh}
+
+if [[ -n ${KITTY_WINDOW_ID:-} ]] && command -v kitten >/dev/null; then
+  if (( same_tab )); then
+    # Pilha: uma sessão por vez ocupando a aba toda
+    kitten @ goto-layout stack >/dev/null 2>&1
+    exec kitten @ launch --type=window --cwd="$dir" "$sh_bin" -ic "$(printf '%q ' "$runner" "$@")" >/dev/null
+  fi
+  exec kitten @ launch --type=tab --cwd="$dir" "$sh_bin" -ic "$(printf '%q ' "$runner" "$@")" >/dev/null
+fi
+
+if [[ -n ${TMUX:-} ]]; then
+  exec tmux new-window -c "$dir" "$(printf '%q ' "$runner" "$@")"
+fi
+
+if command -v kitty >/dev/null; then
+  # --session=none: só esta janela, sem reabrir as abas salvas
+  kitty --single-instance --session=none --directory "$dir" "$sh_bin" -ic "$(printf '%q ' "$runner" "$@")" >/dev/null 2>&1 &
+  disown
+  exit 0
+fi
+
+echo "ct: abra dentro do kitty ou do tmux" >&2
+exit 1

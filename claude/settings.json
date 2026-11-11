@@ -1,0 +1,32 @@
+{
+  "theme": "custom:fedora",
+  "outputStyle": "Português conciso",
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh",
+    "refreshInterval": 30
+  },
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "~/.claude/subagent-statusline.sh"
+  },
+  "spinnerVerbs": {
+    "mode": "replace",
+    "verbs": [
+      "Pensando",
+      "Matutando",
+      "Passando um café",
+      "Lendo o código",
+      "Juntando as peças",
+      "Caçando o bug",
+      "Brigando com o borrow checker",
+      "Consultando a documentação",
+      "Arrumando a casa",
+      "Compilando ideias",
+      "Fazendo as contas",
+      "Desembaraçando o código",
+      "Ajeitando os detalhes",
+      "Quase lá"
+    ]
+  }
+}

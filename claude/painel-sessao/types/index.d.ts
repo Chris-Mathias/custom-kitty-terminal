@@ -1,0 +1,44 @@
+export type TodoStatus = 'pending' | 'in_progress' | 'completed'
+export type Todo = { id: string; text: string; status: TodoStatus }
+
+export type TouchKind = 'leu' | 'editou' | 'criou'
+export type FileTouch = { path: string; kind: TouchKind; at: number }
+
+export type GitFile = { status: string; path: string }
+export type GitInfo = {
+  isRepo: boolean
+  branch: string
+  ahead: number
+  behind: number
+  files: GitFile[]
+  added: number
+  removed: number
+  worktrees: Worktree[]
+}
+
+export type Worktree = { name: string; branch: string; changes: number }
+
+export type SessionRow = {
+  id: string
+  name: string
+  title: string
+  folder: string
+  status: string
+  isBackground: boolean
+  isSelf: boolean
+  /** Painel do tmux onde a sessão roda (ex.: %3); ausente fora do tmux */
+  tmuxPane?: string
+  /** Janela do kitty onde a sessão roda e o socket de controle dele */
+  kitty?: { window: string; socket: string }
+}
+
+declare module 'claude-code' {
+  interface PluginState {
+    'painel-sessao': {
+      todos: Shaped<Todo[]>
+      files: Shaped<FileTouch[]>
+      git: Shaped<GitInfo | null>
+      sessions: Shaped<SessionRow[] | null>
+    }
+  }
+}
