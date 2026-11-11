@@ -12,8 +12,9 @@ pid=$(pgrep -xo kitty || true)
 sock="unix:@kitty-$pid"
 
 if [[ -n $pid ]] && kitten @ --to "$sock" ls >/dev/null 2>&1; then
-  kitten @ --to "$sock" launch --type=tab --cwd=current \
+  kitten @ --to "$sock" launch --type=tab --cwd=oldest \
     sh -c 'exec "${SHELL:-/bin/bash}" -ic "$HOME/.local/bin/claude-panel"' >/dev/null
+  # --cwd=oldest: the window's shell or Claude (current can be a helper such as wl-copy in /).
   # Bring kitty's window forward (the new tab is now the active one).
   kitten @ --to "$sock" focus-window --match recent:0 >/dev/null 2>&1 || true
   exit 0

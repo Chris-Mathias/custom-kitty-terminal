@@ -58,6 +58,11 @@ class ShortcutsTest(unittest.TestCase):
             if " launch " in line and "--type=overlay" not in line:
                 self.assertIn("--cwd=oldest", line)
 
+    def test_system_shortcut_script_uses_oldest_cwd(self):
+        text = (REPO / "bin/ckt-claude-tab").read_text()
+        self.assertNotIn("--cwd=current", text)
+        self.assertIn("--cwd=oldest", text)
+
     def test_capture_mode_defined(self):
         conf = sc.shortcuts_conf(settings())
         self.assertIn("--new-mode ckt-capture --on-unknown passthrough", conf)
