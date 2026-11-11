@@ -84,7 +84,9 @@ def shortcuts_conf(s: dict) -> str:
         if owner.get(k) != a.id or (not s["kitty_ctrl_keys"] and k in CTRL_KEYS):
             continue
         lines.append(f"map {k} {a.kitty_action}")
-    lines.append(f"map --new-mode {CAPTURE_MODE} --on-unknown passthrough {CAPTURE_ESCAPE} pop_keyboard_mode")
+    # --timeout: kitty leaves the mode by itself even if the menu never pops it.
+    lines.append(f"map --new-mode {CAPTURE_MODE} --on-unknown passthrough --timeout 30 "
+                 f"{CAPTURE_ESCAPE} pop_keyboard_mode")
     return "\n".join(lines) + "\n"
 
 

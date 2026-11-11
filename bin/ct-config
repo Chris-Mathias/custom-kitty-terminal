@@ -8,6 +8,7 @@ the response style).
 """
 import curses
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -132,7 +133,9 @@ def capture(win, m: Menu, colors) -> str | None:
         draw(win, m, colors)
         while True:
             combo = read_combo(win)
-            if combo is None or "+" in combo:
+            if combo is None or combo == "escape":
+                return None  # Esc cancels (the keyboard protocol reports it as a key)
+            if "+" in combo:
                 return combo
             # A key on its own isn't a shortcut: ask again.
             m.message = ckt.t("menu.shortcut.need_modifier", m.settings["language"])
@@ -169,7 +172,15 @@ def run(win):
             m.message = " ".join(problems) or note or ckt.t("menu.applied", m.settings["language"])
 
 
+def _closed(signum, frame):
+    # Closing the window (SIGHUP) or a kill (SIGTERM): unwind normally, so a
+    # recording in progress gives kitty its shortcuts back.
+    raise SystemExit(0)
+
+
 if __name__ == "__main__":
+    signal.signal(signal.SIGHUP, _closed)
+    signal.signal(signal.SIGTERM, _closed)
     try:
         curses.wrapper(run)
     except KeyboardInterrupt:

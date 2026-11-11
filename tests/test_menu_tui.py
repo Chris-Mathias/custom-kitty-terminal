@@ -3,6 +3,7 @@ import fcntl
 import json
 import os
 import pty
+import signal
 import select
 import struct
 import tempfile
@@ -16,11 +17,11 @@ DOWN, ENTER = b"\x1bOB", b"\r"
 
 
 class MenuTuiTest(unittest.TestCase):
-    def run_menu(self, keys, prepare=None):
+    def run_menu(self, keys, prepare=None, hangup_after=None):
         with tempfile.TemporaryDirectory() as home:
             env = {"HOME": home, "CKT_CONFIG_DIR": f"{home}/cfg", "TERM": "xterm-256color", "PATH": "/usr/bin:/bin"}
             if prepare:
-                prepare(home)
+                env.update(prepare(home) or {})
             pid, fd = pty.fork()
             if pid == 0:
                 os.execve("/usr/bin/python3", ["python3", str(REPO / "bin/ct-config")], env)
@@ -38,10 +39,20 @@ class MenuTuiTest(unittest.TestCase):
                             return
 
             pump(1.0)
-            for k in keys:
+            for n, k in enumerate(keys):
                 os.write(fd, k)
                 pump(0.3)
-            os.waitpid(pid, 0)
+                if hangup_after == n:
+                    os.kill(pid, signal.SIGHUP)  # the window is closed mid-recording
+                    break
+            for _ in range(50):  # a menu stuck waiting for keys fails the test instead of hanging it
+                if os.waitpid(pid, os.WNOHANG) != (0, 0):
+                    break
+                pump(0.1)
+            else:
+                os.kill(pid, signal.SIGKILL)
+                os.waitpid(pid, 0)
+            self.kitten_log = Path(home, "kitten.log").read_text() if Path(home, "kitten.log").exists() else ""
             path = Path(home, "cfg/settings.json")
             settings = json.loads(path.read_text()) if path.exists() else None
             return settings, out.decode("utf8", "replace")
@@ -66,6 +77,25 @@ class MenuTuiTest(unittest.TestCase):
         self.assertEqual(settings["shortcuts"], {"settings": "ctrl+alt+y"})
         self.assertIn("\x1b[>1u", screen)  # asked kitty for modifier key codes
         self.assertIn("\x1b[<u", screen)  # and gave them back
+
+    def test_escape_cancels_recording(self):
+        keys = [DOWN] * 3 + [ENTER] + [DOWN] * 20 + [ENTER, ENTER, b"\x1b[27u", b"q"]
+        settings, screen = self.run_menu(keys)
+        self.assertTrue(settings is None or settings["shortcuts"] == {})
+        self.assertNotIn("Use at least one", screen)
+
+    def test_kitty_shortcuts_come_back_when_the_menu_is_closed(self):
+        def fake_kitten(home):
+            stub = Path(home, "bin/kitten")
+            stub.parent.mkdir()
+            stub.write_text(f'#!/bin/sh\necho "$*" >> {home}/kitten.log\n')
+            stub.chmod(0o755)
+            return {"PATH": f"{home}/bin:/usr/bin:/bin", "KITTY_LISTEN_ON": "unix:@test"}
+
+        keys = [DOWN] * 3 + [ENTER] + [DOWN] * 20 + [ENTER, ENTER]
+        self.run_menu(keys, prepare=fake_kitten, hangup_after=len(keys) - 1)
+        self.assertIn("push_keyboard_mode ckt-capture", self.kitten_log)
+        self.assertIn("pop_keyboard_mode", self.kitten_log)
 
 
 if __name__ == "__main__":

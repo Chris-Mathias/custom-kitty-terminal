@@ -47,7 +47,9 @@ class ShortcutsTest(unittest.TestCase):
         self.assertEqual(maps(sc.shortcuts_conf(settings())), TODAY)
 
     def test_capture_mode_defined(self):
-        self.assertIn("--new-mode ckt-capture --on-unknown passthrough", sc.shortcuts_conf(settings()))
+        conf = sc.shortcuts_conf(settings())
+        self.assertIn("--new-mode ckt-capture --on-unknown passthrough", conf)
+        self.assertIn("--timeout 30", conf)  # safety net: kitty leaves the mode by itself
 
     def test_override(self):
         conf = maps(sc.shortcuts_conf(settings(shortcuts={"claude_tab": "ctrl+alt+y"})))
