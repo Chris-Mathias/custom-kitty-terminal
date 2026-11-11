@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# ckt-claude-tab: what the system-wide Ctrl+Alt+T runs (a GNOME keyboard shortcut
+# set up by bootstrap.sh), so the key works the same inside and outside kitty.
+#   kitty open   -> new tab with Claude (and the side panel) in the folder of
+#                   kitty's active window, and kitty comes to the front
+#   kitty closed -> starts kitty, which reopens the saved tabs
+# GNOME grabs Ctrl+Alt+T before any app sees it, so kitty's own Ctrl+Alt+T
+# mapping only fires when this shortcut is removed.
+
+# The oldest kitty is the main instance (the one with the saved tabs).
+pid=$(pgrep -xo kitty || true)
+sock="unix:@kitty-$pid"
+
+if [[ -n $pid ]] && kitten @ --to "$sock" ls >/dev/null 2>&1; then
+  kitten @ --to "$sock" launch --type=tab --cwd=current \
+    sh -c 'exec "${SHELL:-/bin/bash}" -ic "$HOME/.local/bin/claude-panel"' >/dev/null
+  # Bring kitty's window forward (the new tab is now the active one).
+  kitten @ --to "$sock" focus-window --match recent:0 >/dev/null 2>&1 || true
+  exit 0
+fi
+
+exec kitty

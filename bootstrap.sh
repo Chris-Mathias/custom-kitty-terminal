@@ -235,12 +235,39 @@ for a in apps:
 print(out)' "$favorites")
       [[ $new != "$favorites" ]] && gsettings set org.gnome.shell favorite-apps "$new"
     fi
-    # A custom Ctrl+Alt+T shortcut that runs another terminal now runs kitty.
+    # Ctrl+Alt+T, system-wide: GNOME grabs the key before kitty sees it, so it runs
+    # ckt-claude-tab (new Claude tab in kitty, or starts kitty). A custom shortcut
+    # already on Ctrl+Alt+T, or one that opens another terminal, is repointed;
+    # otherwise one is added.
     base=org.gnome.settings-daemon.plugins.media-keys
-    for path in $(gsettings get $base custom-keybindings 2>/dev/null | tr -d "[],'@as"); do
-      cmd=$(gsettings get "$base.custom-keybinding:$path" command 2>/dev/null || true)
-      case $cmd in "'ptyxis'"|"'gnome-terminal'"|"'kgx'") gsettings set "$base.custom-keybinding:$path" command kitty ;; esac
+    runner="$HOME/.local/bin/ckt-claude-tab"
+    found=""
+    # The list prints as ['/path/a/', '/path/b/'] (or @as [] when empty): keep the quoted paths.
+    for path in $(gsettings get $base custom-keybindings 2>/dev/null | grep -o "'[^']*'" | tr -d "'"); do
+      key="$base.custom-keybinding:$path"
+      cmd=$(gsettings get "$key" command 2>/dev/null || true)
+      binding=$(gsettings get "$key" binding 2>/dev/null || true)
+      case "$binding|$cmd" in
+        "'<Control><Alt>t'|"*|"'<Primary><Alt>t'|"*|*"|'ptyxis'"|*"|'gnome-terminal'"|*"|'kgx'"|*"|'kitty'")
+          gsettings set "$key" command "$runner"
+          found=1 ;;
+      esac
     done
+    if [[ -z $found ]]; then
+      path=/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-kitty-terminal/
+      list=$(gsettings get $base custom-keybindings 2>/dev/null || echo "@as []")
+      new=$(python3 -I -c '
+import ast, sys
+raw = sys.argv[1].removeprefix("@as ").strip()
+paths = ast.literal_eval(raw) if raw else []
+if sys.argv[2] not in paths:
+    paths.append(sys.argv[2])
+print(paths)' "$list" "$path")
+      gsettings set $base custom-keybindings "$new"
+      gsettings set "$base.custom-keybinding:$path" name "Claude (kitty)"
+      gsettings set "$base.custom-keybinding:$path" command "$runner"
+      gsettings set "$base.custom-keybinding:$path" binding "<Control><Alt>t"
+    fi
   fi
   ok "kitty opens from Ctrl+Alt+T, \"Open in terminal\" and the dock"
 fi

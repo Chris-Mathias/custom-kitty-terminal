@@ -84,7 +84,7 @@ elif [[ ! -e $session ]]; then
 fi
 
 echo; echo "== Commands (~/.local/bin)"
-for f in ct ct-config ckt-apply claude-panel claude-restore; do
+for f in ct ct-config ckt-apply ckt-claude-tab claude-panel claude-restore; do
   link "$REPO/bin/$f" "$HOME/.local/bin/$f"
 done
 case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) warn "~/.local/bin isn't on your PATH; add it in ~/.zshrc";; esac
