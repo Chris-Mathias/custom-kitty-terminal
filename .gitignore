@@ -4,3 +4,4 @@ last-session.kitty-session
 claude/session-panel/.claude-plugin/types/
 claude/session-panel/tsconfig.json
 .superpowers/
+__pycache__/

@@ -1,0 +1,19 @@
+{
+  "output_style": "Concise English",
+  "spinner.verbs": [
+    "Thinking",
+    "Pondering",
+    "Brewing coffee",
+    "Reading the code",
+    "Connecting the dots",
+    "Hunting the bug",
+    "Fighting the borrow checker",
+    "Checking the docs",
+    "Tidying up",
+    "Compiling ideas",
+    "Crunching numbers",
+    "Untangling the code",
+    "Polishing the details",
+    "Almost there"
+  ]
+}

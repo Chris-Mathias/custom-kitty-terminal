@@ -1,0 +1,17 @@
+{
+  "name": "Catppuccin",
+  "base": "dark",
+  "overrides": {
+    "claude": "#cba6f7",
+    "promptBorder": "#b4befe",
+    "suggestion": "#585b70",
+    "remember": "#f5c2e7",
+    "permission": "#89b4fa",
+    "planMode": "#a6e3a1",
+    "autoAccept": "#f5c2e7",
+    "bashBorder": "#fab387",
+    "success": "#a6e3a1",
+    "warning": "#f9e2af",
+    "error": "#f38ba8"
+  }
+}

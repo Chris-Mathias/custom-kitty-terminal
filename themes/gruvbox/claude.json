@@ -1,0 +1,17 @@
+{
+  "name": "Gruvbox",
+  "base": "dark",
+  "overrides": {
+    "claude": "#fabd2f",
+    "promptBorder": "#d79921",
+    "suggestion": "#504945",
+    "remember": "#d3869b",
+    "permission": "#83a598",
+    "planMode": "#b8bb26",
+    "autoAccept": "#d3869b",
+    "bashBorder": "#fe8019",
+    "success": "#b8bb26",
+    "warning": "#fabd2f",
+    "error": "#fb4934"
+  }
+}

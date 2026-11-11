@@ -1,0 +1,17 @@
+{
+  "name": "Light",
+  "base": "light",
+  "overrides": {
+    "claude": "#1c71d8",
+    "promptBorder": "#3584e4",
+    "suggestion": "#9a9996",
+    "remember": "#9141ac",
+    "permission": "#1c71d8",
+    "planMode": "#26a269",
+    "autoAccept": "#9141ac",
+    "bashBorder": "#c64600",
+    "success": "#26a269",
+    "warning": "#c88800",
+    "error": "#c01c28"
+  }
+}
