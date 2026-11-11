@@ -153,6 +153,17 @@ class InstallTest(unittest.TestCase):
         self.assertFalse(os.path.lexists(self.p(".claude/output-styles/concise-english.md")))
         self.assertNotIn("Ctrl+N", out)
 
+    def test_claude_function_in_bash_and_zsh(self):
+        self.p(".bashrc").write_text("# my bashrc\n")
+        self.env["SHELL"] = "/bin/bash"
+        self.install()
+        bashrc = self.p(".bashrc").read_text()
+        self.assertIn("# my bashrc", bashrc)
+        self.assertEqual(bashrc.count("# >>> custom-kitty-terminal >>>"), 1)
+        self.assertFalse(self.p(".zshrc").exists())  # no zsh here: don't create its file
+        self.install()
+        self.assertEqual(self.p(".bashrc").read_text().count("# >>> custom-kitty-terminal >>>"), 1)
+
     def test_fresh_install_has_no_upgrade_note(self):
         self.assertNotIn("Ctrl+N", self.install())
 

@@ -126,8 +126,14 @@ if [[ -n $before && $(cat "$claude_settings") != "$before" ]]; then
 fi
 ok "kitty theme and font (~/.config/kitty/generated)"
 
-echo; echo "== zsh (~/.zshrc)"
-python3 -I - "$HOME/.zshrc" <<'PY'
+echo; echo "== Shell (~/.zshrc, ~/.bashrc)"
+# The `claude` function goes into the startup file of zsh and/or bash: the ones
+# that exist, plus the one of your login shell.
+rc_files=()
+[[ -f $HOME/.zshrc || ${SHELL:-} == */zsh ]] && rc_files+=("$HOME/.zshrc")
+[[ -f $HOME/.bashrc || ${SHELL:-} == */bash ]] && rc_files+=("$HOME/.bashrc")
+for rc in "${rc_files[@]}"; do
+python3 -I - "$rc" <<'PY'
 import re, sys
 from pathlib import Path
 
@@ -149,7 +155,8 @@ claude() {
 text = text.rstrip("\n")
 path.write_text((text + "\n\n" if text else "") + block)
 PY
-ok "$HOME/.zshrc (claude loads the side panel)"
+ok "$rc (claude loads the side panel)"
+done
 
 echo
 if (( migrated )); then
