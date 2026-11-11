@@ -69,7 +69,7 @@ for f in portugues-conciso.md concise-english.md; do unlink_old "$HOME/.claude/o
 migrated=$was_migrated
 
 echo; echo "== kitty (~/.config/kitty)"
-for f in kitty.conf tabs.conf tab_bar.py close_tab.py close-tab-dialog.sh save_session.py open_under_mouse.py; do
+for f in kitty.conf tabs.conf tab_bar.py close_tab.py close-tab-dialog.sh save_session.py open_under_mouse.py open_actions.conf; do
   link "$REPO/kitty/$f" "$HOME/.config/kitty/$f"
 done
 session="$HOME/.config/kitty/last-session.kitty-session"

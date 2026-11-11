@@ -90,6 +90,32 @@ def image_for(session_id: str, number: str, cache: str | None = None, uid: int |
     return found[0] if found else None
 
 
+def panel_files(session_id: str, cache: str | None = None) -> list[str]:
+    """Full paths of the files the side panel of that Claude session lists (git and files).
+
+    The panel shows only names ("register.tsx hooks"); it writes the full paths to
+    ~/.cache/custom-kitty-terminal/panel/<session>.json so a Ctrl+click on a name finds them."""
+    cache = cache or os.path.expanduser("~/.cache/custom-kitty-terminal/panel")
+    try:
+        with open(os.path.join(cache, f"{session_id}.json")) as f:
+            files = json.load(f).get("files", [])
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [x for x in files if isinstance(x, str)]
+
+
+def match_panel_file(name: str, line: str, files: list[str]) -> str | None:
+    """The listed file a clicked name means: same name (or ending in it), the one whose
+    folder also shows on that row when several share the name ("index.ts api")."""
+    name = name.lstrip("./")
+    found = [f for f in files if f == name or f.endswith("/" + name)]
+    if len(found) > 1:
+        words = set(re.findall(r"[\w.@+-]+", line))
+        near = [f for f in found if os.path.basename(os.path.dirname(f)) in words]
+        found = near or found
+    return found[0] if found else None
+
+
 def is_image(path: str) -> bool:
     return Path(path).suffix.lower() in IMAGE_SUFFIXES
 

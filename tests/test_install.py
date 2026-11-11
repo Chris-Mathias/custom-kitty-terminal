@@ -76,6 +76,7 @@ class InstallTest(unittest.TestCase):
             (".claude/themes/dracula.json", "themes/dracula/claude.json"),
             (".local/share/claude-mods/session-panel", "claude/session-panel"),
             (".config/kitty/open_under_mouse.py", "kitty/open_under_mouse.py"),
+            (".config/kitty/open_actions.conf", "kitty/open_actions.conf"),
             (".local/bin/ckt-open", "bin/ckt-open"),
             (".local/bin/ckt-files", "bin/ckt-files"),
             (".config/yazi/yazi.toml", "yazi/yazi.toml"),

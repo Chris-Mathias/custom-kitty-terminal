@@ -94,6 +94,26 @@ class EditorCommandTest(unittest.TestCase):
         self.assertIsNone(op.editor_command("/p/a.rs", 1, "sublime", self.which("code")))
 
 
+class PanelFilesTest(unittest.TestCase):
+    FILES = ["/r/apps/api/index.ts", "/r/apps/web/index.ts", "/r/yazi/yazi.toml"]
+
+    def test_unique_name(self):
+        self.assertEqual(op.match_panel_file("yazi.toml", "E yazi.toml yazi", self.FILES), "/r/yazi/yazi.toml")
+
+    def test_same_name_uses_the_folder_on_the_row(self):
+        self.assertEqual(op.match_panel_file("index.ts", " M index.ts web", self.FILES), "/r/apps/web/index.ts")
+
+    def test_partial_path_and_missing(self):
+        self.assertEqual(op.match_panel_file("api/index.ts", "", self.FILES), "/r/apps/api/index.ts")
+        self.assertIsNone(op.match_panel_file("nope.rs", "", self.FILES))
+
+    def test_reads_the_session_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            Path(d, "sid.json").write_text('{"files": ["/a/b.rs", 3]}')
+            self.assertEqual(op.panel_files("sid", d), ["/a/b.rs"])
+            self.assertEqual(op.panel_files("other", d), [])
+
+
 class ImageTest(unittest.TestCase):
     def test_cache_then_claude_copy(self):
         with tempfile.TemporaryDirectory() as cache:

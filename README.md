@@ -12,7 +12,7 @@ A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claud
 - **Claude Code**: one-line status line (project, worktree, model, context and 5h/weekly limits), subagent lines with each one's branch/worktree, themed colors and spinner verbs in your language. Claude's response style is left as you set it.
 - **Ctrl+click opens it**: a file path anywhere in the terminal (Claude's output too) opens in your editor at its line, `[Image #3]` opens the image you pasted into Claude, a URL opens in the browser.
 - **File manager** ([yazi](https://yazi-rs.github.io)) on `Ctrl+Alt+E` or `ct files`, with image previews right in kitty; files open in your editor.
-- **Side panel** (`session-panel` mod): open sessions, running subagents, tasks, git (with worktrees), files touched and the images you pasted (as thumbnails). Click a file (in git or files) to open it in your editor, an image to open it in the image viewer. Click a subagent (or press its number with the panel focused, or type `/agent 2`, `/agent next`, `/agent prev`, `/agent main`) to see its conversation; `0` or `/agent main` goes back.
+- **Side panel** (`session-panel` mod): open sessions, running subagents, tasks, git (with worktrees), files touched and the images you pasted (as thumbnails). Ctrl+click a file name (in git or files) to open it in your editor, or `[Image #N]` to open the image; a plain click does nothing there. Click a subagent (or press its number with the panel focused, or type `/agent 2`, `/agent next`, `/agent prev`, `/agent main`) to see its conversation; `0` or `/agent main` goes back.
 
 ## Install
 
@@ -105,7 +105,8 @@ bootstrap.sh  one-command install/update (packages, Claude Code, zsh, default te
 install.sh    links everything into place and applies your settings
 kitty/      kitty.conf, tabs.conf (tab style), tab_bar.py (tabs + ⚙ button),
             close_tab.py + close-tab-dialog.sh (Ctrl+W), save_session.py (reopen tabs),
-            open_under_mouse.py (Ctrl+click)
+            open_under_mouse.py + open_actions.conf (Ctrl+click; its log is
+            ~/.cache/custom-kitty-terminal/ctrl-click.log)
 bin/        ct, ct-config (settings menu), ckt-apply, ckt-claude-tab, ckt-open, ckt-files,
             claude-panel, claude-restore
 lib/        ckt.py / ckt.sh (settings, translations, themes), menu.py, shortcuts.py,

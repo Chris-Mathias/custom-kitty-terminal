@@ -193,6 +193,7 @@ async function refreshGit($: Engine) {
   try {
     const info = await readGit($)
     await update($, git, () => info)
+    await writeIndex($)
   } catch {
     // git missing or slow: keep the last value
   }
@@ -428,15 +429,25 @@ async function touch($: Engine, rawPath: string, kind: TouchKind) {
     const best = old && KIND_RANK[old.kind] > KIND_RANK[kind] ? old.kind : kind
     return [{ path, abs, kind: best, at: Date.now() }, ...list.filter(f => f.path !== path)].slice(0, 60)
   })
+  await writeIndex($)
 }
 
-// Clicking a file in the panel opens it in your editor (ckt-open: ct config → Behavior → Editor;
-// images go to the image viewer). The panel can't tell a Ctrl+click from a click, so any click opens.
-async function openFile($: Engine, abs: string) {
-  const run = await $.process.run(['sh', '-c', 'exec "$HOME/.local/bin/ckt-open" "$1"', 'ckt-open', abs], {
-    timeoutMs: 10000,
-  })
-  if (run.exitCode !== 0) $.ui.toast(run.stderr.trim() || `ckt-open: ${abs}`)
+// Ctrl+click on a file name in the panel opens it in your editor: kitty does it
+// (kitty/open_under_mouse.py), and since the panel shows only names it finds the
+// full paths in ~/.cache/custom-kitty-terminal/panel/<session>.json, written here.
+// A plain click does nothing (the panel can't tell a Ctrl+click from a click).
+async function writeIndex($: Engine) {
+  try {
+    const home = await $.env.get('HOME')
+    const id = (await $.session.id()).replace(/[^A-Za-z0-9_-]/g, '')
+    if (!home || !id) return
+    const [f, g] = await Promise.all([read($, files), read($, git)])
+    const fromGit = g?.root ? g.files.map(x => `${g.root}/${x.path.replace(/^.* -> /, '')}`) : []
+    const all = [...new Set([...f.map(x => x.abs ?? x.path), ...fromGit])]
+    await $.fs.write(`${home}/.cache/custom-kitty-terminal/panel/${id}.json`, JSON.stringify({ files: all }) + '\n')
+  } catch {
+    // nothing to do: Ctrl+click on full paths still works
+  }
 }
 
 // ---------- pasted images ----------
@@ -860,14 +871,7 @@ export const register: Register = on => {
               {label.dir && <Text dimColor> {label.dir}</Text>}
             </Text>
           )
-          // Deleted files have nothing to open.
-          if (!g.root || file.status.includes('D')) return row
-          const abs = `${g.root}/${file.path.replace(/^.* -> /, '')}`
-          return (
-            <Button key={`git-${file.path}`} plain onPress={() => void openFile($, abs)}>
-              {row}
-            </Button>
-          )
+          return row
         })}
         {g.worktrees.map(wt => (
           <Text>
@@ -904,18 +908,16 @@ export const register: Register = on => {
             const mark = TOUCH_MARK[item.kind]
             const shown = fileLabel(item.path, width - 1 - cells(mark))
             return (
-              <Button key={`file-${item.path}`} plain onPress={() => void openFile($, item.abs ?? item.path)}>
-                <Text>
-                  <Text color={TOUCH_COLOR[item.kind]}>{mark}</Text> {shown.base}
-                  {shown.dir && <Text dimColor> {shown.dir}</Text>}
-                </Text>
-              </Button>
+              <Text>
+                <Text color={TOUCH_COLOR[item.kind]}>{mark}</Text> {shown.base}
+                {shown.dir && <Text dimColor> {shown.dir}</Text>}
+              </Text>
             )
           })}
         </Box>
       )
 
-    // IMAGES: the newest pasted images, as thumbnails (a click opens the image viewer)
+    // IMAGES: the newest pasted images, as thumbnails (Ctrl+click on [Image #n] opens it)
     const thumbCols = Math.max(8, width - 1)
     const thumbRows = (img: PastedImage) =>
       img.width && img.height
@@ -928,9 +930,7 @@ export const register: Register = on => {
         <Box flexDirection="column" gap={1}>
           {[...im].reverse().slice(0, 3).map(img => (
             <Box key={`img-${img.n}`} flexDirection="column">
-              <Button key={`img-open-${img.n}`} plain onPress={() => void openFile($, img.file)}>
-                <Text color="claude">[Image #{img.n}]</Text>
-              </Button>
+              <Text color="claude">[Image #{img.n}]</Text>
               {img.isPng && Image && (
                 <Image
                   key={`img-${img.n}-${img.file}`}
