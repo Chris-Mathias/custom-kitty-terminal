@@ -10,7 +10,7 @@ A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claud
 - **Several Claude sessions in the same tab**, stacked, switched from the side panel.
 - **Close with confirmation** only when something is running, in its own dialog.
 - **Claude Code**: one-line status line (project, worktree, model, context and 5h/weekly limits), subagent lines with each one's branch/worktree, themed colors and spinner verbs in your language. Claude's response style is left as you set it.
-- **Side panel** (`session-panel` mod): open sessions, running subagents, tasks, git (with worktrees) and files touched.
+- **Side panel** (`session-panel` mod): open sessions, running subagents, tasks, git (with worktrees) and files touched. Click a subagent (or press its number with the panel focused, or type `/agent 2`, `/agent next`, `/agent prev`, `/agent main`) to see its conversation; `0` or `/agent main` goes back.
 
 ## Install
 

@@ -22,6 +22,9 @@ const EN = {
   'panel.files': 'FILES',
   'panel.agents': 'SUBAGENTS',
   'panel.no_agents': 'none running',
+  'panel.main_conversation': 'main conversation',
+  'panel.agent_command_description': 'Shows a subagent\'s conversation: /agent 2, next, prev or main',
+  'panel.no_such_agent': 'No subagent with that number.',
   'panel.reading': 'reading…',
   'panel.none_open': 'none open',
   'panel.not_a_repo': 'not in a repository',
@@ -293,22 +296,55 @@ async function refreshSessions($: Engine) {
 }
 
 // ---------- subagents ----------
-// claude/subagent-statusline.sh saves this session's subagent rows on every
-// refresh; a file that stopped changing means the list below the prompt is gone.
-type AgentRow = { id: string; name?: string; label?: string; status?: string }
+// The session's subagents come from $.agent.list(); claude/subagent-statusline.sh
+// also saves what each one is doing right now (a file that stopped changing
+// means the list below the prompt is gone). Pressing a row, its digit (with the
+// panel focused) or /agent shows that subagent's conversation.
+type AgentRow = { id: string; name?: string; label?: string; status?: string; canView?: boolean }
 const AGENTS_STALE_MS = 20000
-const agents = atom({ plugin: 'session-panel', key: 'agents' } as const, [] as AgentRow[], { shape: 'agents-1' })
+const agents = atom({ plugin: 'session-panel', key: 'agents' } as const, [] as AgentRow[], { shape: 'agents-2' })
+// The conversation in view, as the last drawing of the panel saw it.
+let viewedAgent: string | undefined
 
-async function refreshAgents($: Engine) {
+async function savedRows($: Engine): Promise<AgentRow[]> {
   try {
     const [home, id] = await Promise.all([$.env.get('HOME'), $.session.id()])
     const path = `${home}/.cache/custom-kitty-terminal/agents/${id}.json`
     const stat = await $.fs.stat(path)
-    const rows = Date.now() - stat.mtimeMs > AGENTS_STALE_MS ? [] : JSON.parse(String(await $.fs.read(path)))
-    await update($, agents, () => (Array.isArray(rows) ? (rows as AgentRow[]) : []))
+    if (Date.now() - stat.mtimeMs > AGENTS_STALE_MS) return []
+    const rows = JSON.parse(String(await $.fs.read(path)))
+    return Array.isArray(rows) ? (rows as AgentRow[]) : []
   } catch {
-    await update($, agents, () => [])
+    return []
   }
+}
+
+async function refreshAgents($: Engine): Promise<AgentRow[]> {
+  const saved = await savedRows($)
+  let listed: AgentRow[] = []
+  try {
+    const now = new Map(saved.map(r => [r.id, r.label]))
+    listed = (await $.agent.list())
+      .filter(a => !a.parentId)
+      .map(a => ({
+        id: a.id,
+        name: a.type,
+        label: now.get(a.id) || a.description,
+        status: a.status,
+        canView: true,
+      }))
+  } catch {
+    // no agent list here: show what the status line saved
+  }
+  const rows = listed.length ? listed : saved
+  await update($, agents, () => rows)
+  return rows
+}
+
+async function showAgent($: Engine, agentId?: string) {
+  const r = await $.ui.view(agentId ? { agentId } : {})
+  const why = (r as { deny?: string } | undefined)?.deny
+  if (why) $.ui.toast(why)
 }
 
 // ---------- files and tasks ----------
@@ -350,6 +386,12 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const S = await refreshStrings($)
     await $.command.register({ name: 'panel', description: S['panel.command_description'] })
+    await $.command.register({
+      name: 'agent',
+      description: S['panel.agent_command_description'],
+      argumentHint: '[n|next|prev|main]',
+      immediate: true,
+    })
     if (((await read($, layout)) ?? DEFAULT_LAYOUT).autoOpen) void $.ui.open(open(S))
     // The language can change from the settings menu while the session runs.
     $.clock.every(5000, () => void refreshStrings($))
@@ -396,6 +438,21 @@ export const register: Register = on => {
     return { text: S['panel.opened'] }
   })
 
+  on('command.run', { command: 'agent' }, async ($, e) => {
+    const rows = (await refreshAgents($)).filter(r => r.canView)
+    const arg = e.args.trim().toLowerCase()
+    const at = rows.findIndex(r => r.id === viewedAgent)
+    let target: AgentRow | undefined
+    if (arg === 'main' || arg === '0') target = undefined
+    else if (arg === '' || arg === 'next') target = rows[(at + 1) % Math.max(1, rows.length)]
+    else if (arg === 'prev') target = rows[at <= 0 ? rows.length - 1 : at - 1]
+    else target = rows[Number(arg) - 1]
+    if (arg !== 'main' && arg !== '0' && !target) return { text: (await textOf($))['panel.no_such_agent'] }
+    await showAgent($, target?.id)
+    viewedAgent = target?.id
+    return {}
+  })
+
   on('tool.call', async ($, e, next) => {
     const ran = await next(e)
     if (ran.deny !== undefined || ran.isError === true) return ran
@@ -435,6 +492,7 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     // 1 column of left margin
     const width = Math.max(18, ((e.props as { bodyColumns?: number }).bodyColumns ?? PANE_COLUMNS) - 1)
+    viewedAgent = (e.props as { view?: { agentId?: string } }).view?.agentId
     const [s, g, t, f, S, a] = await Promise.all([
       read($, sessions), read($, git), read($, todos), read($, files), textOf($), read($, agents),
     ])
@@ -497,19 +555,43 @@ export const register: Register = on => {
         : status === 'failed' || status === 'killed'
           ? { mark: '✗', color: 'error' }
           : { mark: '◐', color: 'permission' }
+    const viewable = a.filter(r => r.canView)
     const agentRows =
       a.length === 0 ? (
         <Text dimColor>{S['panel.no_agents']}</Text>
       ) : (
         <Box flexDirection="column">
+          {viewedAgent && (
+            <Button key="agent-main" hotkey="0" plain onPress={() => void showAgent($)}>
+              <Text dimColor>◂ {S['panel.main_conversation']}</Text>
+            </Button>
+          )}
           {a.map(row => {
             const look = AGENT_LOOK(row.status)
             const name = row.name ?? 'agent'
+            const n = viewable.indexOf(row)
+            const label = row.label ? fitHead(row.label, Math.max(4, width - name.length - 6)) : ''
+            const shown = row.id === viewedAgent
+            if (!row.canView)
+              return (
+                <Text key={row.id}>
+                  <Text color={look.color}>{look.mark}</Text> {name}
+                  {label && <Text dimColor> {label}</Text>}
+                </Text>
+              )
             return (
-              <Text key={row.id}>
-                <Text color={look.color}>{look.mark}</Text> {name}
-                {row.label && <Text dimColor> {fitHead(row.label, Math.max(4, width - name.length - 3))}</Text>}
-              </Text>
+              <Button
+                key={`agent-${row.id}`}
+                hotkey={n >= 0 && n < 9 ? String(n + 1) : undefined}
+                plain
+                onPress={() => void showAgent($, row.id)}
+              >
+                <Text color={look.color}>{look.mark}</Text>{' '}
+                <Text color={shown ? 'claude' : undefined} bold={shown}>
+                  {name}
+                </Text>
+                {label && <Text dimColor> {label}</Text>}
+              </Button>
             )
           })}
         </Box>

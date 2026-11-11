@@ -42,9 +42,12 @@ async function mountPanel(
   on: On,
   files: Record<string, string>,
   status = STATUS,
-  opts: { skipCommand?: boolean } = {},
+  opts: { skipCommand?: boolean; agents?: unknown[]; view?: { agentId?: string } } = {},
 ) {
   const opened: unknown[] = []
+  const views: unknown[] = []
+  on('agent.list', () => ({ value: opts.agents ?? [] }))
+  on('ui.view', (_, e) => (views.push(e), { value: {} }))
   on('command.register', () => ({ value: { command: 'panel' } }))
   on('ui.open', (_, e) => (opened.push(e), { value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
@@ -98,11 +101,11 @@ async function mountPanel(
   await $.tool.call({ tool: 'Read', file_path: '/proj/Cargo.toml' })
   await $.tool.call({ tool: 'Edit', file_path: '/proj/src/main.rs', old_string: 'a', new_string: 'b' })
 
-  if (opts.skipCommand) return { ui: undefined as never, text: undefined as never, tmuxCalls, opened }
+  if (opts.skipCommand) return { ui: undefined as never, text: undefined as never, tmuxCalls, opened, views }
   await $.command.run({ command: 'panel' })
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, view: opts.view ?? {} } })
   const text = async (re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
-  return { ui, text, tmuxCalls, opened }
+  return { ui, text, tmuxCalls, opened, views }
 }
 
 test('the panel shows sessions, git, tasks and files', async ($, on) => {
@@ -182,4 +185,40 @@ test('the panel lists the running subagents', async ($, on) => {
   })
   expect(await text(/general-purpose/)).toBe('◐ general-purpose Fixing the parser')
   await ui.unmount()
+})
+
+const SUBAGENTS = [
+  { id: 'ag1', description: 'Implement Task 8', type: 'general-purpose', status: 'running' },
+  { id: 'ag2', description: 'Review Task 1', type: 'code-reviewer', status: 'completed' },
+]
+
+test('pressing a subagent shows its conversation', async ($, on) => {
+  const { ui, views } = await mountPanel($, on, { [SETTINGS]: '{"language":"en"}', '/repo/i18n/en.json': EN }, STATUS, {
+    agents: SUBAGENTS,
+  })
+  await ui.press({ key: 'agent-ag2' })
+  expect(views).toEqual([{ agentId: 'ag2' }])
+  await ui.unmount()
+})
+
+test('a digit picks a subagent and 0 goes back to the main conversation', async ($, on) => {
+  const { ui, views } = await mountPanel($, on, { [SETTINGS]: '{"language":"en"}', '/repo/i18n/en.json': EN }, STATUS, {
+    agents: SUBAGENTS,
+    view: { agentId: 'ag1' },
+  })
+  await ui.press({ key: 'agent-main' })
+  expect(views).toEqual([{}])
+  expect((await ui.find({ type: 'Button', key: 'agent-ag1' }))?.props.hotkey).toBe('1')
+  expect((await ui.find({ type: 'Button', key: 'agent-main' }))?.props.hotkey).toBe('0')
+  await ui.unmount()
+})
+
+test('/agent next and /agent main switch the view', async ($, on) => {
+  const { views } = await mountPanel($, on, { [SETTINGS]: '{"language":"en"}', '/repo/i18n/en.json': EN }, STATUS, {
+    agents: SUBAGENTS,
+  })
+  await $.command.run({ command: 'agent', args: 'next' })
+  await $.command.run({ command: 'agent', args: '2' })
+  await $.command.run({ command: 'agent', args: 'main' })
+  expect(views).toEqual([{ agentId: 'ag1' }, { agentId: 'ag2' }, {}])
 })

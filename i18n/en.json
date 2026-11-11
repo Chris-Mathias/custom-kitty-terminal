@@ -168,5 +168,8 @@
   "menu.item.subagent_rows": "Subagent list below the prompt",
   "menu.item.panel.agents": "Subagents",
   "panel.agents": "SUBAGENTS",
-  "panel.no_agents": "none running"
+  "panel.no_agents": "none running",
+  "panel.main_conversation": "main conversation",
+  "panel.agent_command_description": "Shows a subagent's conversation: /agent 2, next, prev or main",
+  "panel.no_such_agent": "No subagent with that number."
 }
