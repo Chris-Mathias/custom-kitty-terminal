@@ -15,5 +15,6 @@
     "Untangling the code",
     "Polishing the details",
     "Almost there"
-  ]
+  ],
+  "apply.claude_settings_invalid": "Couldn't update {path}: it isn't valid JSON. Fix it and apply again."
 }

@@ -15,5 +15,6 @@
     "Desembaraçando o código",
     "Ajeitando os detalhes",
     "Quase lá"
-  ]
+  ],
+  "apply.claude_settings_invalid": "Não consegui atualizar {path}: o JSON está inválido. Corrija e aplique de novo."
 }

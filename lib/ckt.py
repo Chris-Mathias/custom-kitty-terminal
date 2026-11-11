@@ -89,9 +89,81 @@ def theme_label(theme: str) -> str:
     return json.loads((REPO / "themes" / theme / "claude.json").read_text())["name"]
 
 
+STATUS_LINES = {
+    "statusLine": {"type": "command", "command": "~/.claude/statusline.sh", "refreshInterval": 30},
+    "subagentStatusLine": {"type": "command", "command": "~/.claude/subagent-statusline.sh"},
+}
+
+
+def claude_settings_path() -> Path:
+    return Path.home() / ".claude/settings.json"
+
+
+def claude_values(s: dict) -> dict:
+    """The keys this project owns in ~/.claude/settings.json."""
+    return {
+        "theme": f"custom:{s['theme']}",
+        "outputStyle": t("output_style", s["language"]),
+        "spinnerVerbs": {"mode": "replace", "verbs": t("spinner.verbs", s["language"])},
+        **STATUS_LINES,
+    }
+
+
+def merge_claude_settings(s: dict) -> bool:
+    """Merges our keys into Claude's settings; True if the file changed.
+
+    Raises ValueError when the existing file isn't a JSON object (it is left untouched)."""
+    path = claude_settings_path()
+    try:
+        text = path.read_text()
+    except FileNotFoundError:
+        text = ""
+    data = json.loads(text) if text.strip() else {}
+    if not isinstance(data, dict):
+        raise ValueError("not a JSON object")
+    merged = {**data, **claude_values(s)}
+    if merged == data:
+        return False
+    write_atomic(path, json.dumps(merged, indent=2, ensure_ascii=False) + "\n")
+    return True
+
+
+def kitty_dir() -> Path:
+    return Path.home() / ".config/kitty"
+
+
+def write_kitty_includes(s: dict) -> None:
+    gen = kitty_dir() / "generated"
+    write_atomic(gen / "theme.conf", (REPO / "themes" / s["theme"] / "kitty.conf").read_text())
+    write_atomic(gen / "font.conf", "# Written by the settings menu (ct config).\n"
+                 f"font_family {s['font_family']}\nfont_size {s['font_size']}.0\n")
+
+
+def reload_kitty() -> None:
+    try:
+        subprocess.run(["pkill", "-USR1", "-u", str(os.getuid()), "-x", "kitty"], capture_output=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def apply(s: dict | None = None, reload: bool = True) -> list[str]:
+    """Applies the settings to kitty and Claude Code. Returns problems as translated messages."""
+    s = s or load_settings()
+    problems = []
+    write_kitty_includes(s)
+    try:
+        merge_claude_settings(s)
+    except ValueError:
+        problems.append(t("apply.claude_settings_invalid", s["language"]).format(path=claude_settings_path()))
+    if reload:
+        reload_kitty()
+    return problems
+
+
 def mono_fonts() -> list[str]:
     try:
         out = subprocess.run(["fc-list", ":spacing=mono", "family"], capture_output=True, text=True, timeout=10).stdout
     except (OSError, subprocess.SubprocessError):
         return []
-    return sorted({line.split(",")[0].strip() for line in out.splitlines() if line.strip()})
+    names = {line.split(",")[0].strip() for line in out.splitlines() if line.strip()}
+    return sorted(n for n in names if "emoji" not in n.lower())

@@ -121,6 +121,21 @@ class ThemeTest(unittest.TestCase):
         self.assertEqual(ckt.theme_label("tokyo-night"), "Tokyo Night")
 
 
+class FontsTest(unittest.TestCase):
+    def test_mono_fonts_dedup_and_skip_emoji(self):
+        with tempfile.TemporaryDirectory() as d:
+            stub = Path(d, "fc-list")
+            stub.write_text("#!/bin/sh\nprintf 'Source Code Pro,Source Code Pro Light\\nAdwaita Mono\\n"
+                            "Noto Color Emoji\\nSource Code Pro\\n'\n")
+            stub.chmod(0o755)
+            old = os.environ["PATH"]
+            os.environ["PATH"] = f"{d}:{old}"
+            try:
+                self.assertEqual(ckt.mono_fonts(), ["Adwaita Mono", "Source Code Pro"])
+            finally:
+                os.environ["PATH"] = old
+
+
 class ShellTest(ConfigDirTest):
     def sh(self, cmd):
         return subprocess.run(["bash", "-c", f"source {REPO}/lib/ckt.sh; {cmd}"],
