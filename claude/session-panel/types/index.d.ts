@@ -39,6 +39,7 @@ declare module 'claude-code' {
       files: Shaped<FileTouch[]>
       git: Shaped<GitInfo | null>
       sessions: Shaped<SessionRow[] | null>
+      strings: Shaped<Record<string, string>>
     }
   }
 }

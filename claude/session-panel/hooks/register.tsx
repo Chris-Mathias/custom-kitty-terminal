@@ -4,11 +4,76 @@ import type { EngineInterface as Engine, Register } from 'claude-code'
 import type { FileTouch, GitInfo, SessionRow, Todo, TodoStatus, TouchKind, Worktree } from '../types'
 
 const PANE = 'session-panel'
-const TITLE = 'Sessão'
 // Requested width for the side pane (whatever you drag with the mouse wins).
 const PANE_COLUMNS = 30
 // Transparent background: the panel uses the terminal's background color.
-const OPEN = { id: PANE, title: TITLE, columns: PANE_COLUMNS, backgroundColor: 'transparent' } as const
+const open = (S: Strings) =>
+  ({ id: PANE, title: S['panel.title'], columns: PANE_COLUMNS, backgroundColor: 'transparent' }) as const
+
+// ---------- language ----------
+// Built-in English text; the user's language comes from the settings menu (ct config):
+// ~/.config/custom-kitty-terminal/settings.json picks the language and the repo's
+// i18n/<lang>.json has the text (the repo is found through this plugin folder's real path).
+const EN = {
+  'panel.title': 'Session',
+  'panel.sessions': 'SESSIONS',
+  'panel.git': 'GIT',
+  'panel.tasks': 'TASKS',
+  'panel.files': 'FILES',
+  'panel.reading': 'reading…',
+  'panel.none_open': 'none open',
+  'panel.not_a_repo': 'not in a repository',
+  'panel.nothing_changed': 'nothing changed',
+  'panel.file': 'file',
+  'panel.files_count': 'files',
+  'panel.others': 'more',
+  'panel.none': 'none',
+  'panel.none_yet': 'none yet',
+  'panel.more_tasks': 'tasks',
+  'panel.more_files': 'files',
+  'panel.detached_head': 'detached HEAD',
+  'panel.kitty_switch_failed': "couldn't switch tabs",
+  'panel.command_description': 'Opens the session panel (sessions, git, tasks, files)',
+  'panel.opened': 'Session panel opened.',
+  'panel.mark_read': 'R',
+  'panel.mark_edited': 'E',
+  'panel.mark_created': 'N',
+}
+type Strings = typeof EN
+
+async function readJson($: Engine, path: string): Promise<Record<string, unknown>> {
+  try {
+    const value = JSON.parse(String(await $.fs.read(path)))
+    return value && typeof value === 'object' ? value : {}
+  } catch {
+    return {}
+  }
+}
+
+async function loadStrings($: Engine): Promise<Strings> {
+  try {
+    const dir = (await $.env.get('CKT_CONFIG_DIR')) || `${await $.env.get('HOME')}/.config/custom-kitty-terminal`
+    const lang = (await readJson($, `${dir}/settings.json`)).language === 'pt' ? 'pt' : 'en'
+    const real = (await $.fs.stat($.plugin.root, { resolve: true })).realPath
+    if (!real) return EN
+    const repo = real.split('/').slice(0, -2).join('/')
+    const pick = (o: Record<string, unknown>) =>
+      Object.fromEntries(Object.entries(o).filter(([k, v]) => k in EN && typeof v === 'string'))
+    const en = pick(await readJson($, `${repo}/i18n/en.json`))
+    const own = lang === 'en' ? {} : pick(await readJson($, `${repo}/i18n/${lang}.json`))
+    return { ...EN, ...en, ...own }
+  } catch {
+    return EN
+  }
+}
+
+async function refreshStrings($: Engine): Promise<Strings> {
+  const next = await loadStrings($)
+  await update($, strings, () => next)
+  return next
+}
+
+const textOf = async ($: Engine): Promise<Strings> => ({ ...EN, ...(await read($, strings)) })
 
 const todos = atom({ plugin: 'session-panel', key: 'todos' } as const, [] as Todo[], { shape: 'todos-1' })
 const files = atom({ plugin: 'session-panel', key: 'files' } as const, [] as FileTouch[], { shape: 'files-2' })
@@ -16,6 +81,11 @@ const git = atom({ plugin: 'session-panel', key: 'git' } as const, null as GitIn
 const sessions = atom({ plugin: 'session-panel', key: 'sessions' } as const, null as SessionRow[] | null, {
   shape: 'sessions-4',
 })
+const strings = atom({ plugin: 'session-panel', key: 'strings' } as const, {} as Record<string, string>, {
+  shape: 'strings-1',
+})
+// Branch name stored for a detached HEAD; drawn in the user's language.
+const DETACHED = '\u0000detached'
 
 // Tools that may change the repository: git is re-read after them.
 const MUTATING = new Set(['Bash', 'Edit', 'Write', 'NotebookEdit', 'MultiEdit'])
@@ -30,7 +100,7 @@ async function readGit($: Engine): Promise<GitInfo> {
   const lines = st.stdout.split('\n').filter(Boolean)
   const head = lines[0]?.startsWith('## ') ? lines.shift()!.slice(3) : ''
   let branch = (head.split('...')[0] ?? '').replace(/^No commits yet on /, '')
-  if (branch.startsWith('HEAD')) branch = 'HEAD solto'
+  if (branch.startsWith('HEAD')) branch = DETACHED
   const ahead = Number(/ahead (\d+)/.exec(head)?.[1] ?? 0)
   const behind = Number(/behind (\d+)/.exec(head)?.[1] ?? 0)
   const changed = lines.map(l => ({ status: l.slice(0, 2).trim() || '?', path: l.slice(3) }))
@@ -59,7 +129,7 @@ async function readWorktrees($: Engine): Promise<Worktree[]> {
   for (const block of list.stdout.split('\n\n')) {
     const path = /^worktree (.+)$/m.exec(block)?.[1]
     if (!path || path === main) continue
-    const branch = /^branch refs\/heads\/(.+)$/m.exec(block)?.[1] ?? 'HEAD solto'
+    const branch = /^branch refs\/heads\/(.+)$/m.exec(block)?.[1] ?? DETACHED
     found.push({ path, branch })
   }
   return Promise.all(
@@ -140,7 +210,7 @@ async function focusKitty($: Engine, k: { window: string; socket: string }) {
   const run = await $.process.run(['kitten', '@', '--to', k.socket, 'focus-window', '--match', `id:${k.window}`], {
     timeoutMs: 5000,
   })
-  if (run.exitCode !== 0) $.ui.toast(`kitty: ${run.stderr.trim() || 'não consegui trocar de aba'}`)
+  if (run.exitCode !== 0) $.ui.toast(`kitty: ${run.stderr.trim() || (await textOf($))['panel.kitty_switch_failed']}`)
 }
 
 // Click on a session: switch to it and then reopen the panel, so the
@@ -149,7 +219,7 @@ async function pressSession($: Engine, kitty?: { window: string; socket: string 
   if (kitty) await focusKitty($, kitty)
   else if (pane) await switchTo($, pane)
   await $.ui.close({ id: PANE })
-  await $.ui.open(OPEN)
+  await $.ui.open(open(await textOf($)))
 }
 
 // Switches tmux to the chosen session's window/pane.
@@ -223,7 +293,6 @@ const fileLabel = (path: string, n: number): { base: string; dir?: string } => {
 
 const TODO_MARK: Record<TodoStatus, string> = { completed: '✓', in_progress: '◐', pending: '○' }
 const TODO_COLOR: Record<TodoStatus, string> = { completed: 'success', in_progress: '#7dcfff', pending: 'inactive' }
-const TOUCH_MARK: Record<TouchKind, string> = { read: 'L', edited: 'E', created: 'N' }
 const TOUCH_COLOR: Record<TouchKind, string> = { read: 'inactive', edited: 'warning', created: 'success' }
 const GIT_COLOR = (s: string) => (s === '??' || s.includes('A') ? 'success' : s.includes('D') ? 'error' : 'warning')
 const SESSION_LOOK = (status: string): { mark: string; color: string } =>
@@ -235,8 +304,11 @@ const SESSION_LOOK = (status: string): { mark: string; color: string } =>
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'panel', description: 'Abre o painel da sessão (sessões, git, tarefas, arquivos)' })
-    void $.ui.open(OPEN)
+    const S = await refreshStrings($)
+    await $.command.register({ name: 'panel', description: S['panel.command_description'] })
+    void $.ui.open(open(S))
+    // The language can change from the settings menu while the session runs.
+    $.clock.every(5000, () => void refreshStrings($))
 
     void refreshGit($)
     void refreshSessions($)
@@ -271,10 +343,11 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'panel' }, async $ => {
-    await $.ui.open(OPEN)
+    const S = await refreshStrings($)
+    await $.ui.open(open(S))
     void refreshGit($)
     void refreshSessions($)
-    return { text: 'Painel da sessão aberto.' }
+    return { text: S['panel.opened'] }
   })
 
   on('tool.call', async ($, e, next) => {
@@ -316,7 +389,13 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     // 1 column of left margin
     const width = Math.max(18, ((e.props as { bodyColumns?: number }).bodyColumns ?? PANE_COLUMNS) - 1)
-    const [s, g, t, f] = await Promise.all([read($, sessions), read($, git), read($, todos), read($, files)])
+    const [s, g, t, f, S] = await Promise.all([read($, sessions), read($, git), read($, todos), read($, files), textOf($)])
+    const branchName = (b: string) => (b === DETACHED ? S['panel.detached_head'] : b)
+    const TOUCH_MARK: Record<TouchKind, string> = {
+      read: S['panel.mark_read'],
+      edited: S['panel.mark_edited'],
+      created: S['panel.mark_created'],
+    }
 
     const Head = ({ children }: { children: string }) => (
       <Text dimColor bold>
@@ -326,9 +405,9 @@ export const register: Register = on => {
 
     // SESSIONS
     const sessionRows = !s ? (
-      <Text dimColor>lendo…</Text>
+      <Text dimColor>{S['panel.reading']}</Text>
     ) : s.length === 0 ? (
-      <Text dimColor>nenhuma aberta</Text>
+      <Text dimColor>{S['panel.none_open']}</Text>
     ) : (
       <Box flexDirection="column">
         {s.map(row => {
@@ -365,21 +444,21 @@ export const register: Register = on => {
 
     // GIT
     const gitRows = !g ? (
-      <Text dimColor>lendo…</Text>
+      <Text dimColor>{S['panel.reading']}</Text>
     ) : !g.isRepo ? (
-      <Text dimColor>fora de um repositório</Text>
+      <Text dimColor>{S['panel.not_a_repo']}</Text>
     ) : (
       <Box flexDirection="column">
         <Text>
-          <Text color="claude">⎇ {fitHead(g.branch, width - 10)}</Text>
+          <Text color="claude">⎇ {fitHead(branchName(g.branch), width - 10)}</Text>
           {g.ahead > 0 && <Text color="#7dcfff"> ⇡{g.ahead}</Text>}
           {g.behind > 0 && <Text color="warning"> ⇣{g.behind}</Text>}
         </Text>
         {g.files.length === 0 ? (
-          <Text dimColor>nada alterado</Text>
+          <Text dimColor>{S['panel.nothing_changed']}</Text>
         ) : (
           <Text>
-            {g.files.length} {g.files.length === 1 ? 'arquivo' : 'arquivos'} <Text color="success">+{g.added}</Text>{' '}
+            {g.files.length} {g.files.length === 1 ? S['panel.file'] : S['panel.files_count']} <Text color="success">+{g.added}</Text>{' '}
             <Text color="error">−{g.removed}</Text>
           </Text>
         )}
@@ -389,10 +468,10 @@ export const register: Register = on => {
             {fileLabel(file.path, width - 3).dir && <Text dimColor> {fileLabel(file.path, width - 3).dir}</Text>}
           </Text>
         ))}
-        {g.files.length > 5 && <Text dimColor>+{g.files.length - 5} outros</Text>}
+        {g.files.length > 5 && <Text dimColor>+{g.files.length - 5} {S['panel.others']}</Text>}
         {g.worktrees.map(wt => (
           <Text>
-            <Text color="#7dcfff">⊞</Text> <Text color="claude">{fitHead(wt.branch, width - 8)}</Text>
+            <Text color="#7dcfff">⊞</Text> <Text color="claude">{fitHead(branchName(wt.branch), width - 8)}</Text>
             {wt.changes > 0 ? <Text color="warning"> {wt.changes}</Text> : <Text dimColor> ✓</Text>}
           </Text>
         ))}
@@ -403,7 +482,7 @@ export const register: Register = on => {
     const done = t.filter(x => x.status === 'completed').length
     const todoRows =
       t.length === 0 ? (
-        <Text dimColor>nenhuma</Text>
+        <Text dimColor>{S['panel.none']}</Text>
       ) : (
         <Box flexDirection="column">
           {t.slice(0, 10).map(item => (
@@ -411,7 +490,7 @@ export const register: Register = on => {
               <Text color={TODO_COLOR[item.status]}>{TODO_MARK[item.status]}</Text> {fitHead(item.text, width - 2)}
             </Text>
           ))}
-          {t.length > 10 && <Text dimColor>+{t.length - 10} tarefas</Text>}
+          {t.length > 10 && <Text dimColor>+{t.length - 10} {S['panel.more_tasks']}</Text>}
         </Box>
       )
 
@@ -421,7 +500,7 @@ export const register: Register = on => {
     const room = Math.max(3, (e.viewport?.rows ?? 40) - used)
     const fileRows =
       f.length === 0 ? (
-        <Text dimColor>nenhum ainda</Text>
+        <Text dimColor>{S['panel.none_yet']}</Text>
       ) : (
         <Box flexDirection="column">
           {f.slice(0, room).map(item => (
@@ -430,26 +509,26 @@ export const register: Register = on => {
               {fileLabel(item.path, width - 2).dir && <Text dimColor> {fileLabel(item.path, width - 2).dir}</Text>}
             </Text>
           ))}
-          {f.length > room && <Text dimColor>+{f.length - room} arquivos</Text>}
+          {f.length > room && <Text dimColor>+{f.length - room} {S['panel.more_files']}</Text>}
         </Box>
       )
 
     return (
       <Box flexDirection="column" gap={1} paddingLeft={1}>
         <Box flexDirection="column">
-          <Head>SESSÕES</Head>
+          <Head>{S['panel.sessions']}</Head>
           {sessionRows}
         </Box>
         <Box flexDirection="column">
-          <Head>GIT</Head>
+          <Head>{S['panel.git']}</Head>
           {gitRows}
         </Box>
         <Box flexDirection="column">
-          <Head>{t.length ? `TAREFAS ${done}/${t.length}` : 'TAREFAS'}</Head>
+          <Head>{t.length ? `${S['panel.tasks']} ${done}/${t.length}` : S['panel.tasks']}</Head>
           {todoRows}
         </Box>
         <Box flexDirection="column">
-          <Head>ARQUIVOS</Head>
+          <Head>{S['panel.files']}</Head>
           {fileRows}
         </Box>
       </Box>

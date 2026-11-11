@@ -24,11 +24,30 @@ const AGENTS = JSON.stringify([
   { pid: 2, sessionId: 'bbb', name: 'seminario-82', cwd: '/x/seminario', status: 'idle', kind: 'interactive', startedAt: 2 },
 ])
 
-test('the panel shows sessions, git, tasks and files', async ($, on) => {
+const EN = JSON.stringify({
+  'panel.sessions': 'SESSIONS', 'panel.tasks': 'TASKS', 'panel.files': 'FILES', 'panel.files_count': 'files',
+  'panel.mark_read': 'R',
+})
+const PT = JSON.stringify({
+  'panel.sessions': 'SESSÕES', 'panel.tasks': 'TAREFAS', 'panel.files': 'ARQUIVOS', 'panel.files_count': 'arquivos',
+  'panel.mark_read': 'L',
+})
+const SETTINGS = '/home/teste/.config/custom-kitty-terminal/settings.json'
+
+type On = Parameters<Parameters<typeof test>[1]>[1]
+type Api = Parameters<Parameters<typeof test>[1]>[0]
+
+async function mountPanel($: Api, on: On, files: Record<string, string>) {
   on('command.register', () => ({ value: { command: 'panel' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
-  on('env.get', () => ({ value: '/home/teste' }))
+  on('env.get', (_, e) => ({ value: e.name === 'HOME' ? '/home/teste' : undefined }))
+  // The panel finds the repo's i18n folder through the plugin folder's real path.
+  on('fs.stat', () => ({ value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: true, realPath: '/repo/claude/session-panel' } }))
+  on('fs.read', (_, e) => {
+    const text = files[e.path]
+    return text === undefined ? { deny: 'ENOENT: missing' } : { value: text }
+  })
   on('fs.list', () => ({ value: [] }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/proj' }))
@@ -73,10 +92,18 @@ test('the panel shows sessions, git, tasks and files', async ($, on) => {
   await $.command.run({ command: 'panel' })
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   const text = async (re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
+  return { ui, text, tmuxCalls }
+}
 
+test('the panel shows sessions, git, tasks and files', async ($, on) => {
+  const { ui, text, tmuxCalls } = await mountPanel($, on, {
+    [SETTINGS]: '{"language":"en"}',
+    '/repo/i18n/en.json': EN,
+  })
   expect(await text(/⎇ main/)).toContain('⇡2')
-  expect(await text(/arquivos/)).toContain('+12')
-  expect(await text(/TAREFAS/)).toBe('TAREFAS 0/2')
+  expect(await text(/ files/)).toContain('+12')
+  expect(await text(/^SESSIONS/)).toBe('SESSIONS')
+  expect(await text(/^TASKS/)).toBe('TASKS 0/2')
   expect(await text(/Implementar A\*/)).toContain('◐')
   expect(await text(/Customizar/)).toBe('◐ Customizar o Claude Code')
   // seminario-82 runs in kitty (window 7): it's a button that focuses its tab
@@ -84,6 +111,26 @@ test('the panel shows sessions, git, tasks and files', async ($, on) => {
   expect(tmuxCalls[0]).toEqual(['kitten', '@', '--to', 'unix:@kitty-99', 'focus-window', '--match', 'id:7'])
   expect(await text(/worktree-agent-a558ed/)).toBe('⊞ worktree-agent-a558ed 2')
   expect(await text(/^E main\.rs/)).toBe('E main.rs src')
+  expect(await text(/Cargo\.toml/)).toBe('R Cargo.toml')
+  await ui.unmount()
+})
+
+test('the panel speaks Portuguese when the settings say so', async ($, on) => {
+  const { ui, text } = await mountPanel($, on, {
+    [SETTINGS]: '{"language":"pt"}',
+    '/repo/i18n/en.json': EN,
+    '/repo/i18n/pt.json': PT,
+  })
+  expect(await text(/^SESSÕES/)).toBe('SESSÕES')
+  expect(await text(/^TAREFAS/)).toBe('TAREFAS 0/2')
+  expect(await text(/arquivos/)).toContain('+12')
   expect(await text(/Cargo\.toml/)).toBe('L Cargo.toml')
+  await ui.unmount()
+})
+
+test('the panel falls back to English when nothing can be read', async ($, on) => {
+  const { ui, text } = await mountPanel($, on, {})
+  expect(await text(/^TASKS/)).toBe('TASKS 0/2')
+  expect(await text(/Cargo\.toml/)).toBe('R Cargo.toml')
   await ui.unmount()
 })

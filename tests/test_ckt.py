@@ -160,5 +160,15 @@ class ShellTest(ConfigDirTest):
         self.assertEqual(self.sh("ckt_bg red"), f"\x1b[48;2;{r};{g};{b}m")
 
 
+
+class PanelStringsTest(unittest.TestCase):
+    def test_panel_builtin_english_matches_en_json(self):
+        src = (REPO / "claude/session-panel/hooks/register.tsx").read_text()
+        block = src[src.index("const EN = {"):src.index("}\ntype Strings")]
+        builtin = dict(re.findall(r"""'(panel\.[a-z_]+)': ['"](.*?)['"],""", block))
+        en = json.loads((REPO / "i18n/en.json").read_text())
+        self.assertEqual(builtin, {k: v for k, v in en.items() if k.startswith("panel.")})
+
+
 if __name__ == "__main__":
     unittest.main()
