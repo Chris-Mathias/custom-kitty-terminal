@@ -234,6 +234,31 @@ async function kittyWindows($: Engine, pids: number[]): Promise<Map<number, { wi
   return out
 }
 
+// Which kitty tab each window is in (number and title, as the tab bar shows
+// them), so sessions that share a tab are drawn together.
+type TabInfo = { key: string; label: string; order: number }
+async function kittyTabs($: Engine, sockets: string[]): Promise<Map<string, TabInfo>> {
+  const out = new Map<string, TabInfo>()
+  let order = 0
+  for (const socket of sockets) {
+    try {
+      const run = await $.process.run(['kitten', '@', '--to', socket, 'ls'], { timeoutMs: 5000 })
+      if (run.exitCode !== 0) continue
+      type Ls = { tabs?: { id: number; title?: string; windows?: { id: number }[] }[] }[]
+      for (const osWindow of JSON.parse(run.stdout) as Ls) {
+        ;(osWindow.tabs ?? []).forEach((tab, i) => {
+          const title = (tab.title ?? '').replace(/^[✳◐⠂⠐·*\s]+/, '').trim()
+          const info = { key: `${socket}#${tab.id}`, label: `${i + 1} ${title}`.trim(), order: order++ }
+          for (const w of tab.windows ?? []) out.set(`${socket}#${w.id}`, info)
+        })
+      }
+    } catch {
+      // kitty gone or busy: no grouping this time
+    }
+  }
+  return out
+}
+
 async function focusKitty($: Engine, k: { window: string; socket: string }) {
   const run = await $.process.run(['kitten', '@', '--to', k.socket, 'focus-window', '--match', `id:${k.window}`], {
     timeoutMs: 5000,
@@ -274,6 +299,7 @@ async function refreshSessions($: Engine) {
       tmuxPanes($, pids),
       kittyWindows($, pids),
     ])
+    const tabs = await kittyTabs($, [...new Set([...kittys.values()].map(k => k.socket))])
     const list = raw
       .sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0))
       .map(
@@ -287,12 +313,25 @@ async function refreshSessions($: Engine) {
           isSelf: s.sessionId === self,
           tmuxPane: s.pid ? panes.get(s.pid) : undefined,
           kitty: s.pid ? kittys.get(s.pid) : undefined,
+          tab: s.pid && kittys.get(s.pid) ? tabs.get(`${kittys.get(s.pid)!.socket}#${kittys.get(s.pid)!.window}`) : undefined,
         }),
       )
     await update($, sessions, () => list)
   } catch {
     // claude not on PATH or unexpected output: keep the last value
   }
+}
+
+// Sessions grouped by kitty tab, in tab order; the ones outside kitty come last, unlabelled.
+function groupByTab(rows: SessionRow[]): { key: string; label: string; rows: SessionRow[] }[] {
+  const groups = new Map<string, { key: string; label: string; order: number; rows: SessionRow[] }>()
+  for (const row of rows) {
+    const key = row.tab?.key ?? ''
+    const g = groups.get(key) ?? { key, label: row.tab?.label ?? '', order: row.tab?.order ?? 1e9, rows: [] }
+    g.rows.push(row)
+    groups.set(key, g)
+  }
+  return [...groups.values()].sort((a, b) => a.order - b.order)
 }
 
 // ---------- subagents ----------
@@ -516,35 +555,39 @@ export const register: Register = on => {
       <Text dimColor>{S['panel.none_open']}</Text>
     ) : (
       <Box flexDirection="column">
-        {s.map(row => {
-          const look = SESSION_LOOK(row.status)
-          const tag = row.isBackground ? ' bg' : ''
-          const label = fitHead(row.title, width - 3 - tag.length)
-          const pane = row.tmuxPane
-          const kitty = row.kitty
-          const canSwitch = Boolean(pane || kitty)
-          // In kitty or tmux the row is a button: clicking switches to the session.
-          if (canSwitch && !row.isSelf)
-            return (
-              <Button
-                key={row.id}
-                plain
-                onPress={() => void pressSession($, kitty, pane)}
-              >
-                <Text color={look.color}>{look.mark}</Text> {label}
-                {tag && <Text dimColor>{tag}</Text>}
-              </Button>
-            )
-          return (
-            <Text>
-              <Text color={look.color}>{look.mark}</Text>{' '}
-              <Text color={row.isSelf ? 'claude' : undefined} bold={row.isSelf} dimColor={!canSwitch && !row.isSelf}>
-                {label}
-              </Text>
-              {tag && <Text dimColor>{tag}</Text>}
-            </Text>
-          )
-        })}
+        {groupByTab(s).map(group => (
+          <Box key={group.key} flexDirection="column">
+            {group.label && <Text dimColor>{fitHead(group.label, width)}</Text>}
+            {group.rows.map(row => {
+              const look = SESSION_LOOK(row.status)
+              const tag = row.isBackground ? ' bg' : ''
+              const indent = group.label ? ' ' : ''
+              const label = fitHead(row.title, width - 3 - tag.length - indent.length)
+              const pane = row.tmuxPane
+              const kitty = row.kitty
+              const canSwitch = Boolean(pane || kitty)
+              // In kitty or tmux the row is a button: clicking switches to the session.
+              if (canSwitch && !row.isSelf)
+                return (
+                  <Button key={row.id} plain onPress={() => void pressSession($, kitty, pane)}>
+                    {indent}
+                    <Text color={look.color}>{look.mark}</Text> {label}
+                    {tag && <Text dimColor>{tag}</Text>}
+                  </Button>
+                )
+              return (
+                <Text key={row.id}>
+                  {indent}
+                  <Text color={look.color}>{look.mark}</Text>{' '}
+                  <Text color={row.isSelf ? 'claude' : undefined} bold={row.isSelf} dimColor={!canSwitch && !row.isSelf}>
+                    {label}
+                  </Text>
+                  {tag && <Text dimColor>{tag}</Text>}
+                </Text>
+              )
+            })}
+          </Box>
+        ))}
       </Box>
     )
 

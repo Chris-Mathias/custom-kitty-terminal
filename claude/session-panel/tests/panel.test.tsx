@@ -33,6 +33,15 @@ const PT = JSON.stringify({
   'panel.mark_read': 'L',
 })
 const SETTINGS = '/home/teste/.config/custom-kitty-terminal/settings.json'
+// kitty: window 5 (session aaa) and window 7 (session bbb) share the second tab.
+const KITTY_LS = JSON.stringify([
+  {
+    tabs: [
+      { id: 1, title: 'Monorepo', windows: [{ id: 3 }] },
+      { id: 2, title: 'Incerti', windows: [{ id: 5 }, { id: 7 }] },
+    ],
+  },
+])
 
 type On = Parameters<Parameters<typeof test>[1]>[1]
 type Api = Parameters<Parameters<typeof test>[1]>[0]
@@ -67,13 +76,15 @@ async function mountPanel(
   const tmuxCalls: string[][] = []
   on('process.run', (_, e) => {
     const argv = (e as { argv: string[] }).argv
-    if (argv[0] === 'tmux' || argv[0] === 'kitten') tmuxCalls.push([...argv])
+    if ((argv[0] === 'tmux' || argv[0] === 'kitten') && !argv.includes('ls')) tmuxCalls.push([...argv])
     const stdout = argv.includes('agents')
       ? AGENTS
       : argv[0] === 'sh' && argv.includes('panes')
         ? ''
+        : argv[0] === 'kitten' && argv.includes('ls')
+          ? KITTY_LS
         : argv[0] === 'sh' && argv.includes('kitty')
-          ? '2\t7\tunix:@kitty-99\n'
+          ? '1\t5\tunix:@kitty-99\n2\t7\tunix:@kitty-99\n'
         : argv[0] === 'sh'
           ? 'aaa\tCustomizar o Claude Code\n'
         : argv.includes('--show-toplevel')
@@ -118,7 +129,7 @@ test('the panel shows sessions, git, tasks and files', async ($, on) => {
   expect(await text(/^SESSIONS/)).toBe('SESSIONS')
   expect(await text(/^TASKS/)).toBe('TASKS 0/2')
   expect(await text(/Implementar A\*/)).toContain('◐')
-  expect(await text(/Customizar/)).toBe('◐ Customizar o Claude Code')
+  expect(await text(/Customizar/)).toBe(' ◐ Customizar o Claude Code') // indented under its kitty tab
   // seminario-82 runs in kitty (window 7): it's a button that focuses its tab
   await ui.press({ key: 'bbb' })
   expect(tmuxCalls[0]).toEqual(['kitten', '@', '--to', 'unix:@kitty-99', 'focus-window', '--match', 'id:7'])
@@ -221,4 +232,12 @@ test('/agent next and /agent main switch the view', async ($, on) => {
   await $.command.run({ command: 'agent', args: '2' })
   await $.command.run({ command: 'agent', args: 'main' })
   expect(views).toEqual([{ agentId: 'ag1' }, { agentId: 'ag2' }, {}])
+})
+
+test('sessions in the same kitty tab are grouped under it', async ($, on) => {
+  const { ui, text } = await mountPanel($, on, { [SETTINGS]: '{"language":"en"}', '/repo/i18n/en.json': EN })
+  expect(await text(/Incerti/)).toBe('2 Incerti')
+  const rows = (await ui.findAll({ type: 'Text', text: /^(2 Incerti|SESSIONS|.*Customizar|.*seminario)/ })).map(t => t.text)
+  expect(rows.indexOf('2 Incerti')).toBeGreaterThan(rows.indexOf('SESSIONS'))
+  await ui.unmount()
 })

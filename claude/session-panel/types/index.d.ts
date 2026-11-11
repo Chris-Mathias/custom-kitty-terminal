@@ -30,6 +30,8 @@ export type SessionRow = {
   tmuxPane?: string
   /** kitty window the session runs in and its control socket */
   kitty?: { window: string; socket: string }
+  /** kitty tab the window is in: number and title, as the tab bar shows them */
+  tab?: { key: string; label: string; order: number }
 }
 
 declare module 'claude-code' {
