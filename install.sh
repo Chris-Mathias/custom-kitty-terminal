@@ -27,7 +27,9 @@ link() {
   if [[ -L $target && $(readlink -f "$target") == "$(readlink -f "$source")" ]]; then
     printf '%s  already linked: %s%s\n' "$dim" "$target" "$r"; return
   fi
-  if [[ -e $target || -L $target ]]; then
+  if [[ -L $target && $(readlink "$target") == "$REPO"/* ]]; then
+    rm "$target"  # our own link from an older layout: nothing to keep
+  elif [[ -e $target || -L $target ]]; then
     mv "$target" "$target.bak-$DATE"
     warn "kept the previous one as $target.bak-$DATE"
   fi

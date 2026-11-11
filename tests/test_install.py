@@ -102,7 +102,8 @@ class InstallTest(unittest.TestCase):
         mods = self.p(".local/share/claude-mods")
         mods.mkdir(parents=True)
         (mods / "painel-sessao").symlink_to(REPO / "claude/painel-sessao")
-        self.p(".claude").mkdir()
+        self.p(".claude/themes").mkdir(parents=True)
+        self.p(".claude/themes/fedora.json").symlink_to(REPO / "claude/themes/fedora.json")  # old location
         self.p(".claude/settings.json").write_text(json.dumps({"model": "opus", "outputStyle": "Português conciso"}))
         self.p(".zshrc").write_text(OLD_ZSHRC)
 
@@ -113,6 +114,9 @@ class InstallTest(unittest.TestCase):
                      ".local/share/claude-mods/painel-sessao", ".config/kitty/ultima-sessao.kitty-session"):
             with self.subTest(gone=gone):
                 self.assertFalse(os.path.lexists(self.p(gone)))
+        dangling = [str(f) for f in self.home.rglob("*") if f.is_symlink() and not f.exists()]
+        self.assertEqual(dangling, [])
+        self.assertEqual(list(self.p(".claude/themes").glob("*.bak-*")), [])
         session = self.p(".config/kitty/last-session.kitty-session").read_text()
         self.assertIn("claude-restore abc", session)
         self.assertNotIn("claude-restaurar", session)
