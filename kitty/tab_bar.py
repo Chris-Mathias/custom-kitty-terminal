@@ -1,43 +1,58 @@
-# Custom drawing for kitty's tabs (tab_bar_style custom).
-# STYLE picks the look: "pills" or "dots".
+# Custom tab bar (tab_bar_style custom): kitty's own slanted powerline tabs
+# plus a ⚙ button at the right end that opens the settings menu (ct-config).
+#
+# kitty has no API for extra tab bar buttons, so the click is caught by wrapping
+# TabManager.handle_tab_bar_mouse. If kitty changes that internal API, the
+# wrapper isn't installed, no ⚙ is drawn and the tabs keep working as usual.
+import os
+
 from kitty.fast_data_types import Screen
-from kitty.tab_bar import DrawData, ExtraData, TabBarData, as_rgb, draw_title
+from kitty.tab_bar import DrawData, ExtraData, TabBarData, as_rgb, draw_tab_with_powerline
 from kitty.utils import color_as_int
 
-STYLE = "dots"
-
-LEFT, RIGHT = "", ""  # rounded caps (kitty draws them itself)
-BLUE = as_rgb(0x51A2DA)
-YELLOW = as_rgb(0xE0AF68)
-GRAY = as_rgb(0x5E5C64)
+GEAR = " ⚙ "
+MENU = os.path.expanduser("~/.local/bin/ct-config")
+GEAR_ENABLED = False
 
 
-def _pill(draw_data: DrawData, screen: Screen, tab: TabBarData, index: int, max_len: int) -> None:
-    tab_bg, tab_fg = screen.cursor.bg, screen.cursor.fg
-    bar_bg = as_rgb(color_as_int(draw_data.default_bg))
-    screen.cursor.fg, screen.cursor.bg = tab_bg, bar_bg
-    screen.draw(LEFT)
-    screen.cursor.fg, screen.cursor.bg = tab_fg, tab_bg
-    draw_title(draw_data, screen, tab, index, max_len)
-    screen.cursor.fg, screen.cursor.bg = tab_bg, bar_bg
-    screen.draw(RIGHT)
-    screen.cursor.fg = tab_fg
-    screen.draw(" ")
+def gear_start(columns: int) -> int:
+    """First cell of the ⚙ button; the last cell of the bar stays blank."""
+    return columns - len(GEAR) - 1
 
 
-def _dot(draw_data: DrawData, screen: Screen, tab: TabBarData, index: int, max_len: int) -> None:
-    tab_fg = screen.cursor.fg
-    screen.cursor.bg = as_rgb(color_as_int(draw_data.default_bg))
-    if tab.is_active:
-        screen.cursor.fg, mark = BLUE, "●"
-    elif tab.has_activity_since_last_focus or tab.needs_attention:
-        screen.cursor.fg, mark = YELLOW, "●"
-    else:
-        screen.cursor.fg, mark = GRAY, "○"
-    screen.draw(" " + mark)
-    screen.cursor.fg = tab_fg
-    draw_title(draw_data, screen, tab, index, max_len)
-    screen.draw("  ")
+def _open_menu(tab_manager) -> None:
+    from kitty.fast_data_types import get_boss
+    from kitty.launch import launch, parse_launch_args
+    spec = parse_launch_args(["--type=overlay", "--title=Settings", MENU])
+    launch(get_boss(), spec.opts, spec.args, target_tab=tab_manager.active_tab)
+
+
+def _install_click_hook() -> bool:
+    try:
+        from kitty.fast_data_types import GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE
+        from kitty.tabs import TabManager
+        original = getattr(TabManager, "_ckt_original_mouse", None) or TabManager.handle_tab_bar_mouse
+
+        def handle_tab_bar_mouse(self, x, y, button, modifiers, action):
+            try:
+                bar = self.tab_bar
+                cell = (int(x) - bar.window_geometry.left) // bar.cell_width
+                if button != -1 and cell >= gear_start(bar.screen.columns):
+                    if button == GLFW_MOUSE_BUTTON_LEFT and action == GLFW_RELEASE:
+                        _open_menu(self)
+                    return None
+            except Exception:
+                pass
+            return original(self, x, y, button, modifiers, action)
+
+        TabManager._ckt_original_mouse = original
+        TabManager.handle_tab_bar_mouse = handle_tab_bar_mouse
+        return True
+    except Exception:
+        return False
+
+
+GEAR_ENABLED = os.path.exists(MENU) and _install_click_hook()
 
 
 def draw_tab(
@@ -45,11 +60,16 @@ def draw_tab(
     before: int, max_tab_length: int, index: int, is_last: bool,
     extra_data: ExtraData,
 ) -> int:
-    if screen.cursor.x == 0:
-        screen.cursor.bg = as_rgb(color_as_int(draw_data.default_bg))
-        screen.draw(" ")
-    if STYLE == "dots":
-        _dot(draw_data, screen, tab, index, max_tab_length)
-    else:
-        _pill(draw_data, screen, tab, index, max_tab_length)
-    return screen.cursor.x
+    end = draw_tab_with_powerline(draw_data, screen, tab, before, max_tab_length, index, is_last, extra_data)
+    if GEAR_ENABLED and is_last and not extra_data.for_layout:
+        start = gear_start(screen.columns)
+        if screen.cursor.x < start:
+            fg, bg = screen.cursor.fg, screen.cursor.bg
+            screen.cursor.bg = as_rgb(color_as_int(draw_data.default_bg))
+            screen.cursor.x = start
+            screen.cursor.fg = as_rgb(color_as_int(draw_data.inactive_fg))
+            screen.draw(GEAR)
+            # kitty clears the row after the cursor once the last tab is drawn,
+            # so the cursor is left past the button.
+            screen.cursor.fg, screen.cursor.bg = fg, bg
+    return end
