@@ -420,16 +420,44 @@ async function touch($: Engine, rawPath: string, kind: TouchKind) {
 }
 
 // ---------- drawing ----------
+// East Asian wide characters (CJK, Hangul, full-width forms, most emoji) take two columns.
+const WIDE: [number, number][] = [
+  [0x1100, 0x115f], [0x2e80, 0x303e], [0x3041, 0x33ff], [0x3400, 0x4dbf], [0x4e00, 0x9fff],
+  [0xa000, 0xa4cf], [0xac00, 0xd7a3], [0xf900, 0xfaff], [0xfe30, 0xfe4f], [0xff00, 0xff60],
+  [0xffe0, 0xffe6], [0x1f300, 0x1f64f], [0x1f900, 0x1f9ff], [0x20000, 0x3fffd],
+]
+const charCells = (ch: string) => {
+  const c = ch.codePointAt(0) ?? 0
+  return WIDE.some(([a, b]) => c >= a && c <= b) ? 2 : 1
+}
+// Screen columns of a string.
+const cells = (s: string) => {
+  let n = 0
+  for (const ch of s) n += charCells(ch)
+  return n
+}
+
 // Truncates at the end, for text (tasks, names).
-const fitHead = (s: string, n: number) => (s.length <= n ? s : s.slice(0, Math.max(1, n - 1)) + '…')
+const fitHead = (s: string, n: number) => {
+  if (cells(s) <= n) return s
+  let out = ''
+  let w = 0
+  for (const ch of s) {
+    const cw = charCells(ch)
+    if (w + cw > Math.max(1, n - 1)) break
+    out += ch
+    w += cw
+  }
+  return (out || [...s][0]) + '…'
+}
 
 // File name and, if it fits, its folder (drawn dimmed): "register.tsx hooks"
 const fileLabel = (path: string, n: number): { base: string; dir?: string } => {
   const parts = path.split('/')
   const base = parts.pop() ?? path
   const dir = parts.pop()
-  if (base.length >= n) return { base: fitHead(base, n) }
-  return dir && base.length + 1 + dir.length <= n ? { base, dir } : { base }
+  if (cells(base) >= n) return { base: fitHead(base, n) }
+  return dir && cells(base) + 1 + cells(dir) <= n ? { base, dir } : { base }
 }
 
 const TODO_MARK: Record<TodoStatus, string> = { completed: '✓', in_progress: '◐', pending: '○' }
@@ -651,7 +679,7 @@ export const register: Register = on => {
             const look = AGENT_LOOK(row.status)
             const name = row.name ?? 'agent'
             const n = viewable.indexOf(row)
-            const label = row.label ? fitHead(row.label, Math.max(4, width - name.length - 6)) : ''
+            const label = row.label ? fitHead(row.label, Math.max(4, width - cells(name) - 6)) : ''
             const shown = row.id === viewedAgent
             if (!row.canView)
               return (
@@ -735,12 +763,16 @@ export const register: Register = on => {
         <Text dimColor>{S['panel.none_yet']}</Text>
       ) : (
         <Box flexDirection="column">
-          {f.map(item => (
-            <Text>
-              <Text color={TOUCH_COLOR[item.kind]}>{TOUCH_MARK[item.kind]}</Text> {fileLabel(item.path, width - 2).base}
-              {fileLabel(item.path, width - 2).dir && <Text dimColor> {fileLabel(item.path, width - 2).dir}</Text>}
-            </Text>
-          ))}
+          {f.map(item => {
+            const mark = TOUCH_MARK[item.kind]
+            const shown = fileLabel(item.path, width - 1 - cells(mark))
+            return (
+              <Text>
+                <Text color={TOUCH_COLOR[item.kind]}>{mark}</Text> {shown.base}
+                {shown.dir && <Text dimColor> {shown.dir}</Text>}
+              </Text>
+            )
+          })}
         </Box>
       )
 

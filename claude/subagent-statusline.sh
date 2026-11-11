@@ -32,7 +32,6 @@ cols=$(jq -r '.columns // 100' <<<"$input")
 width=$(( cols - 2 ))
 now_ms=$(( $(date +%s) * 1000 ))
 
-visible() { local s; s=$(printf '%s' "$1" | sed $'s/\e\\[[0-9;]*m//g'); printf '%s' "${#s}"; }
 short_tokens() { # 495900 -> 496k
   local n=${1:-0}
   if (( n >= 1000000 )); then printf '%d.%dM' $((n / 1000000)) $(( (n % 1000000) / 100000 ))
@@ -78,13 +77,13 @@ while IFS=$'\t' read -r id name label cwd start tokens status; do
 
   left="${B}${name}${R}"
   [[ -n $where ]] && left+="  ${where}"
-  rest=$(( width - $(visible "$left") - $(visible "$right") - 4 ))
+  rest=$(( width - $(ckt_width "$left") - $(ckt_width "$right") - 4 ))
   if [[ -n $label ]] && (( rest > 8 )); then
-    (( ${#label} > rest )) && label="${label:0:rest-1}…"
+    label=$(ckt_fit "$label" "$rest")
     left+="  ${label}"
   fi
 
-  pad=$(( width - $(visible "$left") - $(visible "$right") ))
+  pad=$(( width - $(ckt_width "$left") - $(ckt_width "$right") ))
   (( pad < 2 )) && pad=2
   content=$(printf '%s%*s%s' "$left" "$pad" '' "$right")
   jq -cn --arg id "$id" --arg content "$content" '{id: $id, content: $content}'

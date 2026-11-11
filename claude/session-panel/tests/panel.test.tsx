@@ -152,6 +152,31 @@ test('the panel speaks Portuguese when the settings say so', async ($, on) => {
   await ui.unmount()
 })
 
+test('the panel speaks Chinese and keeps wide text inside the pane', async ($, on) => {
+  const ZH = JSON.stringify({ 'panel.tasks': '任务', 'panel.files_count': '个文件', 'panel.mark_read': '读' })
+  const { ui, text } = await mountPanel($, on, {
+    [SETTINGS]: '{"language":"zh"}',
+    '/repo/i18n/en.json': EN,
+    '/repo/i18n/zh.json': ZH,
+  })
+  expect(await text(/^任务/)).toBe('任务 0/2')
+  expect(await text(/Cargo\.toml/)).toBe('读 Cargo.toml')
+  await $.tool.call({ tool: 'Read', file_path: '/proj/文档/' + '很长的中文文件名'.repeat(4) + '.md' })
+  await $.tool.call({
+    tool: 'TodoWrite',
+    todos: [{ content: '检查拉取请求并修复问题'.repeat(3), status: 'pending', activeForm: '检查中' }],
+  })
+  // Chinese characters take two columns; the pane body is 40 wide.
+  const cols = (s: string) => [...s].reduce((n, ch) => n + (/[　-鿿＀-｠]/.test(ch) ? 2 : 1), 0)
+  const task = (await text(/^○ 检查/)) ?? ''
+  const file = (await text(/^读 很长/)) ?? ''
+  expect(task).toContain('…')
+  expect(file).toContain('…')
+  expect(cols(task)).toBeLessThanOrEqual(39)
+  expect(cols(file)).toBeLessThanOrEqual(39)
+  await ui.unmount()
+})
+
 test('the panel falls back to English when nothing can be read', async ($, on) => {
   const { ui, text } = await mountPanel($, on, {})
   expect(await text(/^TASKS/)).toBe('TASKS 0/2')

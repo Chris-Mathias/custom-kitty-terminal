@@ -101,18 +101,12 @@ right_at() { # cells show_reset
   printf '%s' "$out"
 }
 
-visible() { # visible width (without ANSI codes)
-  local s
-  s=$(printf '%s' "$1" | sed $'s/\e\\[[0-9;]*m//g')
-  printf '%s' "${#s}"
-}
-
-lw=$(visible "$left")
+lw=$(ckt_width "$left")
 # Tries ever shorter versions of the right side until it fits on the same line.
 for spec in "10 1" "8 1" "6 1" "6 0" "0 0"; do
   read -r cells resets <<<"$spec"
   right=$(right_at "$cells" "$resets")
-  rw=$(visible "$right")
+  rw=$(ckt_width "$right")
   if (( lw + rw + 3 <= width )); then
     pad=$(( width - lw - rw ))
     printf '%s%*s%s\n' "$left" "$pad" '' "$right"

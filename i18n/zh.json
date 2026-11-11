@@ -135,7 +135,7 @@
   "menu.shortcut.used_by": "{keys} 已被“{name}”使用。Enter 互换，Esc 取消。",
   "menu.shortcut.used_by_kitty": "kitty 将 {keys} 用于 {name}。Enter 仍然使用，Esc 取消。",
   "menu.shortcut.refused_ctrl": "Ctrl+W 和 Ctrl+N 交给了 shell（行为）。请选择其他按键。",
-  "menu.shortcut.given_to_shell": "关闭 — 交给 shell",
+  "menu.shortcut.given_to_shell": "关 — 交给 shell",
   "menu.restart_needed": "已应用。此项在重启 kitty 后生效。",
   "menu.help_order": "↑↓ 移动   enter 拿起 / 放下   esc 返回",
   "value.on": "开",
