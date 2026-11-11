@@ -129,7 +129,7 @@ test('the panel shows sessions, git, tasks and files', async ($, on) => {
   expect(await text(/^SESSIONS/)).toBe('SESSIONS')
   expect(await text(/^TASKS/)).toBe('TASKS 0/2')
   expect(await text(/Implementar A\*/)).toContain('◐')
-  expect(await text(/Customizar/)).toBe(' ◐ Customizar o Claude Code') // indented under its kitty tab
+  expect(await text(/Customizar/)).toBe('┌ ◐ Customizar o Claude Code')
   // seminario-82 runs in kitty (window 7): it's a button that focuses its tab
   await ui.press({ key: 'bbb' })
   expect(tmuxCalls[0]).toEqual(['kitten', '@', '--to', 'unix:@kitty-99', 'focus-window', '--match', 'id:7'])
@@ -234,10 +234,10 @@ test('/agent next and /agent main switch the view', async ($, on) => {
   expect(views).toEqual([{ agentId: 'ag1' }, { agentId: 'ag2' }, {}])
 })
 
-test('sessions in the same kitty tab are grouped under it', async ($, on) => {
+test('sessions in the same kitty tab are joined by a bracket, like VS Code', async ($, on) => {
   const { ui, text } = await mountPanel($, on, { [SETTINGS]: '{"language":"en"}', '/repo/i18n/en.json': EN })
-  expect(await text(/Incerti/)).toBe('2 Incerti')
-  const rows = (await ui.findAll({ type: 'Text', text: /^(2 Incerti|SESSIONS|.*Customizar|.*seminario)/ })).map(t => t.text)
-  expect(rows.indexOf('2 Incerti')).toBeGreaterThan(rows.indexOf('SESSIONS'))
+  expect(await text(/Customizar/)).toBe('┌ ◐ Customizar o Claude Code')
+  expect(await text(/seminario/)).toBe('└ ○ seminario-82')
+  expect(await text(/Incerti/)).toBeUndefined() // no tab header
   await ui.unmount()
 })

@@ -322,7 +322,7 @@ async function refreshSessions($: Engine) {
   }
 }
 
-// Sessions grouped by kitty tab, in tab order; the ones outside kitty come last, unlabelled.
+// Sessions grouped by kitty tab, in tab order; the ones outside kitty come last.
 function groupByTab(rows: SessionRow[]): { key: string; label: string; rows: SessionRow[] }[] {
   const groups = new Map<string, { key: string; label: string; order: number; rows: SessionRow[] }>()
   for (const row of rows) {
@@ -557,11 +557,12 @@ export const register: Register = on => {
       <Box flexDirection="column">
         {groupByTab(s).map(group => (
           <Box key={group.key} flexDirection="column">
-            {group.label && <Text dimColor>{fitHead(group.label, width)}</Text>}
-            {group.rows.map(row => {
+            {group.rows.map((row, i) => {
               const look = SESSION_LOOK(row.status)
               const tag = row.isBackground ? ' bg' : ''
-              const indent = group.label ? ' ' : ''
+              // Sessions sharing a kitty tab are joined by a bracket, as VS Code groups split terminals.
+              const n = group.rows.length
+              const indent = n < 2 ? '' : i === 0 ? '┌ ' : i === n - 1 ? '└ ' : '├ '
               const label = fitHead(row.title, width - 3 - tag.length - indent.length)
               const pane = row.tmuxPane
               const kitty = row.kitty
@@ -570,14 +571,16 @@ export const register: Register = on => {
               if (canSwitch && !row.isSelf)
                 return (
                   <Button key={row.id} plain onPress={() => void pressSession($, kitty, pane)}>
-                    {indent}
-                    <Text color={look.color}>{look.mark}</Text> {label}
-                    {tag && <Text dimColor>{tag}</Text>}
+                    <Text>
+                      <Text dimColor>{indent}</Text>
+                      <Text color={look.color}>{look.mark}</Text> {label}
+                      {tag && <Text dimColor>{tag}</Text>}
+                    </Text>
                   </Button>
                 )
               return (
                 <Text key={row.id}>
-                  {indent}
+                  <Text dimColor>{indent}</Text>
                   <Text color={look.color}>{look.mark}</Text>{' '}
                   <Text color={row.isSelf ? 'claude' : undefined} bold={row.isSelf} dimColor={!canSwitch && !row.isSelf}>
                     {label}
