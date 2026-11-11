@@ -1,6 +1,0 @@
-{
-  "name": "painel-sessao",
-  "version": "0.1.0",
-  "description": "Painel lateral com git, tarefas, uso e arquivos tocados na sessão",
-  "types": "./types/index.d.ts"
-}

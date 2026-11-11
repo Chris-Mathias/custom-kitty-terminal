@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Linhas dos subagentes (o painel embaixo do prompt) para o Claude Code.
-# Mostra, por subagente: nome · o que está fazendo · branch/worktree onde trabalha
-# e, à direita, tempo e tokens. Recebe um JSON com `tasks` e devolve uma linha
-# JSON {"id","content"} por subagente (https://code.claude.com/docs/en/statusline).
+# Subagent lines (the area below the prompt) for Claude Code.
+# Shows, per subagent: name · what it's doing · branch/worktree it works in
+# and, on the right, time and tokens. Reads JSON with `tasks` and prints one
+# JSON line {"id","content"} per subagent (https://code.claude.com/docs/en/statusline).
 
 input=$(cat)
 
@@ -41,7 +41,7 @@ while IFS=$'\t' read -r id name label cwd start tokens status; do
   [[ $label == "-" ]] && label=""
   [[ $cwd == "-" ]] && cwd=""
 
-  # Onde o subagente trabalha: só mostra quando é outro diretório (ex.: worktree isolada)
+  # Where the subagent works: only shown when it's another directory (e.g. an isolated worktree)
   where=""
   if [[ -n $cwd && $cwd != "$session_cwd" ]] && git -C "$cwd" rev-parse --is-inside-work-tree &>/dev/null; then
     br=$(git --no-optional-locks -C "$cwd" branch --show-current 2>/dev/null)

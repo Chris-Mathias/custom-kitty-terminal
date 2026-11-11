@@ -1,0 +1,6 @@
+{
+  "name": "session-panel",
+  "version": "0.1.0",
+  "description": "Side panel with sessions, git, tasks and files touched in the session",
+  "types": "./types/index.d.ts"
+}

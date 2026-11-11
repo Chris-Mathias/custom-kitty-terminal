@@ -3,23 +3,23 @@ import type { EngineInterface as Engine, Register } from 'claude-code'
 
 import type { FileTouch, GitInfo, SessionRow, Todo, TodoStatus, TouchKind, Worktree } from '../types'
 
-const PANE = 'painel-sessao'
+const PANE = 'session-panel'
 const TITLE = 'Sessão'
-// Largura pedida para a lateral (o que você arrastar com o mouse vale mais).
+// Requested width for the side pane (whatever you drag with the mouse wins).
 const PANE_COLUMNS = 30
-// Fundo transparente: o painel usa a mesma cor de fundo do terminal.
+// Transparent background: the panel uses the terminal's background color.
 const OPEN = { id: PANE, title: TITLE, columns: PANE_COLUMNS, backgroundColor: 'transparent' } as const
 
-const todos = atom({ plugin: 'painel-sessao', key: 'todos' } as const, [] as Todo[], { shape: 'todos-1' })
-const files = atom({ plugin: 'painel-sessao', key: 'files' } as const, [] as FileTouch[], { shape: 'files-1' })
-const git = atom({ plugin: 'painel-sessao', key: 'git' } as const, null as GitInfo | null, { shape: 'git-2' })
-const sessions = atom({ plugin: 'painel-sessao', key: 'sessions' } as const, null as SessionRow[] | null, {
+const todos = atom({ plugin: 'session-panel', key: 'todos' } as const, [] as Todo[], { shape: 'todos-1' })
+const files = atom({ plugin: 'session-panel', key: 'files' } as const, [] as FileTouch[], { shape: 'files-2' })
+const git = atom({ plugin: 'session-panel', key: 'git' } as const, null as GitInfo | null, { shape: 'git-2' })
+const sessions = atom({ plugin: 'session-panel', key: 'sessions' } as const, null as SessionRow[] | null, {
   shape: 'sessions-4',
 })
 
-// Ferramentas que podem mudar o repositório: depois delas o git é relido.
+// Tools that may change the repository: git is re-read after them.
 const MUTATING = new Set(['Bash', 'Edit', 'Write', 'NotebookEdit', 'MultiEdit'])
-const KIND_RANK: Record<TouchKind, number> = { leu: 0, editou: 1, criou: 2 }
+const KIND_RANK: Record<TouchKind, number> = { read: 0, edited: 1, created: 2 }
 
 // ---------- git ----------
 async function readGit($: Engine): Promise<GitInfo> {
@@ -48,7 +48,7 @@ async function readGit($: Engine): Promise<GitInfo> {
   return { isRepo: true, branch, ahead, behind, files: changed, added, removed, worktrees: await readWorktrees($) }
 }
 
-// Worktrees além da principal (ex.: as dos subagentes em .claude/worktrees/)
+// Worktrees other than the main one (e.g. the subagents' in .claude/worktrees/)
 const shortAgent = (s: string) => s.replace(/(agent-[0-9a-f]{6})[0-9a-f]+/, '$1')
 async function readWorktrees($: Engine): Promise<Worktree[]> {
   const top = await $.process.run(['git', 'rev-parse', '--show-toplevel'], { timeoutMs: 5000 })
@@ -81,13 +81,13 @@ async function refreshGit($: Engine) {
     const info = await readGit($)
     await update($, git, () => info)
   } catch {
-    // git ausente ou lento: mantém o último valor
+    // git missing or slow: keep the last value
   }
 }
 
-// ---------- sessões abertas (claude agents --json) ----------
-// Título que o Claude dá a cada sessão (o mesmo da aba do terminal).
-// Lido do fim da transcrição; formato interno, por isso há o nome como reserva.
+// ---------- open sessions (claude agents --json) ----------
+// Title Claude gives each session (the same as the terminal tab's).
+// Read from the end of the transcript; internal format, hence the name as a fallback.
 const titles = new Map<string, { title: string; at: number }>()
 async function sessionTitles($: Engine, ids: string[]): Promise<Map<string, string>> {
   const now = Date.now()
@@ -98,7 +98,7 @@ async function sessionTitles($: Engine, ids: string[]): Promise<Map<string, stri
       '[ -n "$f" ] || continue; ' +
       't=$(grep -oE \'"(customTitle|aiTitle)":"[^"]*"\' "$f" | tail -1 | sed \'s/^"[a-zA-Z]*":"//; s/"$//\'); ' +
       'printf "%s\\t%s\\n" "$id" "$t"; done'
-    const run = await $.process.run(['sh', '-c', script, 'titulos', ...stale], { timeoutMs: 10000 })
+    const run = await $.process.run(['sh', '-c', script, 'titles', ...stale], { timeoutMs: 10000 })
     for (const id of stale) titles.set(id, { title: titles.get(id)?.title ?? '', at: now })
     for (const line of run.stdout.split('\n')) {
       const [id, title] = line.split('\t')
@@ -108,12 +108,12 @@ async function sessionTitles($: Engine, ids: string[]): Promise<Map<string, stri
   return new Map(ids.map(id => [id, titles.get(id)?.title ?? '']))
 }
 
-// Em qual painel do tmux cada sessão roda: sobe pelos processos pais do
-// claude até achar o processo de um painel do tmux (list-panes -a).
+// Which tmux pane each session runs in: walks up claude's parent processes
+// until it finds a tmux pane's process (list-panes -a).
 const PANES_SCRIPT = String.raw`panes=$(tmux list-panes -a -F "#{pane_pid} #{pane_id}" 2>/dev/null) || exit 0; for p in "$@"; do q=$p; while [ -n "$q" ] && [ "$q" -gt 1 ]; do m=$(printf "%s\n" "$panes" | awk -v q="$q" "\$1==q{print \$2}"); if [ -n "$m" ]; then printf "%s\t%s\n" "$p" "$m"; break; fi; q=$(awk "{print \$4}" /proc/$q/stat 2>/dev/null); done; done; true`
 
 async function tmuxPanes($: Engine, pids: number[]): Promise<Map<number, string>> {
-  const run = await $.process.run(['sh', '-c', PANES_SCRIPT, 'paineis', ...pids.map(String)], { timeoutMs: 5000 })
+  const run = await $.process.run(['sh', '-c', PANES_SCRIPT, 'panes', ...pids.map(String)], { timeoutMs: 5000 })
   const out = new Map<number, string>()
   for (const line of run.stdout.split('\n')) {
     const [pid, pane] = line.split('\t')
@@ -122,8 +122,8 @@ async function tmuxPanes($: Engine, pids: number[]): Promise<Map<number, string>
   return out
 }
 
-// Em qual janela do kitty cada sessão roda: o kitty põe KITTY_WINDOW_ID e
-// KITTY_LISTEN_ON no ambiente do shell, e o claude herda os dois.
+// Which kitty window each session runs in: kitty puts KITTY_WINDOW_ID and
+// KITTY_LISTEN_ON in the shell's environment, and claude inherits both.
 const KITTY_SCRIPT = String.raw`for p in "$@"; do e=$(tr "\0" "\n" < /proc/$p/environ 2>/dev/null); w=$(printf "%s\n" "$e" | sed -n "s/^KITTY_WINDOW_ID=//p"); s=$(printf "%s\n" "$e" | sed -n "s/^KITTY_LISTEN_ON=//p"); [ -n "$w" ] && [ -n "$s" ] && printf "%s\t%s\t%s\n" "$p" "$w" "$s"; done; true`
 
 async function kittyWindows($: Engine, pids: number[]): Promise<Map<number, { window: string; socket: string }>> {
@@ -143,8 +143,8 @@ async function focusKitty($: Engine, k: { window: string; socket: string }) {
   if (run.exitCode !== 0) $.ui.toast(`kitty: ${run.stderr.trim() || 'não consegui trocar de aba'}`)
 }
 
-// Clique numa sessão: troca para ela e depois reabre o painel, para o
-// anel de foco não ficar parado na linha clicada (o quadrado branco).
+// Click on a session: switch to it and then reopen the panel, so the
+// focus ring doesn't stay on the clicked row (the white square).
 async function pressSession($: Engine, kitty?: { window: string; socket: string }, pane?: string) {
   if (kitty) await focusKitty($, kitty)
   else if (pane) await switchTo($, pane)
@@ -152,7 +152,7 @@ async function pressSession($: Engine, kitty?: { window: string; socket: string 
   await $.ui.open(OPEN)
 }
 
-// Troca o tmux para a janela/painel da sessão escolhida.
+// Switches tmux to the chosen session's window/pane.
 async function switchTo($: Engine, pane: string) {
   const sw = await $.process.run(['tmux', 'switch-client', '-t', pane], { timeoutMs: 5000 })
   await $.process.run(['tmux', 'select-window', '-t', pane], { timeoutMs: 5000 })
@@ -193,11 +193,11 @@ async function refreshSessions($: Engine) {
       )
     await update($, sessions, () => list)
   } catch {
-    // claude fora do PATH ou saída inesperada: mantém o último valor
+    // claude not on PATH or unexpected output: keep the last value
   }
 }
 
-// ---------- arquivos e tarefas ----------
+// ---------- files and tasks ----------
 async function touch($: Engine, rawPath: string, kind: TouchKind) {
   const cwd = await $.session.cwd()
   const path = rawPath.startsWith(cwd + '/') ? rawPath.slice(cwd.length + 1) : rawPath
@@ -208,11 +208,11 @@ async function touch($: Engine, rawPath: string, kind: TouchKind) {
   })
 }
 
-// ---------- desenho ----------
-// Corta pelo fim, para textos (tarefas, nomes).
+// ---------- drawing ----------
+// Truncates at the end, for text (tasks, names).
 const fitHead = (s: string, n: number) => (s.length <= n ? s : s.slice(0, Math.max(1, n - 1)) + '…')
 
-// Nome do arquivo e, se couber, a pasta onde está (desenhada apagada): "register.tsx hooks"
+// File name and, if it fits, its folder (drawn dimmed): "register.tsx hooks"
 const fileLabel = (path: string, n: number): { base: string; dir?: string } => {
   const parts = path.split('/')
   const base = parts.pop() ?? path
@@ -223,27 +223,27 @@ const fileLabel = (path: string, n: number): { base: string; dir?: string } => {
 
 const TODO_MARK: Record<TodoStatus, string> = { completed: '✓', in_progress: '◐', pending: '○' }
 const TODO_COLOR: Record<TodoStatus, string> = { completed: 'success', in_progress: '#7dcfff', pending: 'inactive' }
-const TOUCH_MARK: Record<TouchKind, string> = { leu: 'L', editou: 'E', criou: 'N' }
-const TOUCH_COLOR: Record<TouchKind, string> = { leu: 'inactive', editou: 'warning', criou: 'success' }
+const TOUCH_MARK: Record<TouchKind, string> = { read: 'L', edited: 'E', created: 'N' }
+const TOUCH_COLOR: Record<TouchKind, string> = { read: 'inactive', edited: 'warning', created: 'success' }
 const GIT_COLOR = (s: string) => (s === '??' || s.includes('A') ? 'success' : s.includes('D') ? 'error' : 'warning')
 const SESSION_LOOK = (status: string): { mark: string; color: string } =>
   status === 'busy'
     ? { mark: '◐', color: '#7dcfff' }
     : status === 'idle'
       ? { mark: '○', color: 'inactive' }
-      : { mark: '●', color: 'warning' } // esperando você ou outro estado
+      : { mark: '●', color: 'warning' } // waiting for you or another state
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'painel', description: 'Abre o painel da sessão (sessões, git, tarefas, arquivos)' })
+    await $.command.register({ name: 'panel', description: 'Abre o painel da sessão (sessões, git, tarefas, arquivos)' })
     void $.ui.open(OPEN)
 
     void refreshGit($)
     void refreshSessions($)
     $.clock.every(15000, () => void refreshGit($))
-    // Sessões: o estado (trabalhando/parada) é relido a cada 4 s; abrir ou
-    // fechar uma sessão é percebido em ~1 s, olhando a pasta onde o Claude Code
-    // registra cada sessão aberta (~/.claude/sessions, um arquivo por processo).
+    // Sessions: the state (busy/idle) is re-read every 4 s; opening or
+    // closing a session is noticed in ~1 s by watching the folder where Claude Code
+    // records each open session (~/.claude/sessions, one file per process).
     $.clock.every(4000, () => void refreshSessions($))
     const home = await $.env.get('HOME')
     if (home) {
@@ -270,7 +270,7 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('command.run', { command: 'painel' }, async $ => {
+  on('command.run', { command: 'panel' }, async $ => {
     await $.ui.open(OPEN)
     void refreshGit($)
     void refreshSessions($)
@@ -282,12 +282,12 @@ export const register: Register = on => {
     if (ran.deny !== undefined || ran.isError === true) return ran
 
     try {
-      if (e.tool === 'Read') await touch($, e.file_path, 'leu')
-      else if (e.tool === 'Edit') await touch($, e.file_path, 'editou')
+      if (e.tool === 'Read') await touch($, e.file_path, 'read')
+      else if (e.tool === 'Edit') await touch($, e.file_path, 'edited')
       else if (e.tool === 'Write') {
         const created = (ran.result as { type?: string } | undefined)?.type === 'create'
-        await touch($, e.file_path, created ? 'criou' : 'editou')
-      } else if (e.tool === 'NotebookEdit') await touch($, e.notebook_path, 'editou')
+        await touch($, e.file_path, created ? 'created' : 'edited')
+      } else if (e.tool === 'NotebookEdit') await touch($, e.notebook_path, 'edited')
       else if (e.tool === 'TodoWrite') {
         const list = e.todos.map((t, i) => ({ id: String(i), text: t.content, status: t.status }))
         await update($, todos, () => list)
@@ -307,14 +307,14 @@ export const register: Register = on => {
 
       if (MUTATING.has(e.tool)) await refreshGit($)
     } catch {
-      // o painel nunca atrapalha a ferramenta
+      // the panel never gets in the tool's way
     }
     return ran
   }).catch(($, e, next) => next(e))
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
-    // 1 coluna de margem à esquerda
+    // 1 column of left margin
     const width = Math.max(18, ((e.props as { bodyColumns?: number }).bodyColumns ?? PANE_COLUMNS) - 1)
     const [s, g, t, f] = await Promise.all([read($, sessions), read($, git), read($, todos), read($, files)])
 
@@ -324,7 +324,7 @@ export const register: Register = on => {
       </Text>
     )
 
-    // SESSÕES
+    // SESSIONS
     const sessionRows = !s ? (
       <Text dimColor>lendo…</Text>
     ) : s.length === 0 ? (
@@ -338,7 +338,7 @@ export const register: Register = on => {
           const pane = row.tmuxPane
           const kitty = row.kitty
           const canSwitch = Boolean(pane || kitty)
-          // No kitty ou no tmux a linha é um botão: clicar troca para a sessão.
+          // In kitty or tmux the row is a button: clicking switches to the session.
           if (canSwitch && !row.isSelf)
             return (
               <Button
@@ -399,7 +399,7 @@ export const register: Register = on => {
       </Box>
     )
 
-    // TAREFAS
+    // TASKS
     const done = t.filter(x => x.status === 'completed').length
     const todoRows =
       t.length === 0 ? (
@@ -415,7 +415,7 @@ export const register: Register = on => {
         </Box>
       )
 
-    // ARQUIVOS: ocupa o que sobrar da altura
+    // FILES: takes whatever height is left
     const used =
       12 + (s?.length ?? 1) + Math.min(t.length || 1, 11) + Math.min(g?.files.length ?? 0, 6) + (g?.worktrees.length ?? 0)
     const room = Math.max(3, (e.viewport?.rows ?? 40) - used)

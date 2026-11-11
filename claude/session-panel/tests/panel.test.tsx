@@ -1,9 +1,9 @@
 import { expect, test } from 'claude-code/testing'
 
 const PANE = {
-  plugin: 'painel-sessao',
+  plugin: 'session-panel',
   component: 'Pane',
-  requestId: 'painel-sessao',
+  requestId: 'session-panel',
   props: {
     title: 'Sessão',
     isFocused: false,
@@ -24,8 +24,8 @@ const AGENTS = JSON.stringify([
   { pid: 2, sessionId: 'bbb', name: 'seminario-82', cwd: '/x/seminario', status: 'idle', kind: 'interactive', startedAt: 2 },
 ])
 
-test('o painel mostra git, tarefas, uso e arquivos', async ($, on) => {
-  on('command.register', () => ({ value: { command: 'painel' } }))
+test('the panel shows sessions, git, tasks and files', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'panel' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
   on('env.get', () => ({ value: '/home/teste' }))
@@ -39,7 +39,7 @@ test('o painel mostra git, tarefas, uso e arquivos', async ($, on) => {
     if (argv[0] === 'tmux' || argv[0] === 'kitten') tmuxCalls.push([...argv])
     const stdout = argv.includes('agents')
       ? AGENTS
-      : argv[0] === 'sh' && argv.includes('paineis')
+      : argv[0] === 'sh' && argv.includes('panes')
         ? ''
         : argv[0] === 'sh' && argv.includes('kitty')
           ? '2\t7\tunix:@kitty-99\n'
@@ -70,7 +70,7 @@ test('o painel mostra git, tarefas, uso e arquivos', async ($, on) => {
   await $.tool.call({ tool: 'Read', file_path: '/proj/Cargo.toml' })
   await $.tool.call({ tool: 'Edit', file_path: '/proj/src/main.rs', old_string: 'a', new_string: 'b' })
 
-  await $.command.run({ command: 'painel' })
+  await $.command.run({ command: 'panel' })
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   const text = async (re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
 
@@ -79,7 +79,7 @@ test('o painel mostra git, tarefas, uso e arquivos', async ($, on) => {
   expect(await text(/TAREFAS/)).toBe('TAREFAS 0/2')
   expect(await text(/Implementar A\*/)).toContain('◐')
   expect(await text(/Customizar/)).toBe('◐ Customizar o Claude Code')
-  // seminario-82 roda no kitty (janela 7): é um botão que foca a aba dele
+  // seminario-82 runs in kitty (window 7): it's a button that focuses its tab
   await ui.press({ key: 'bbb' })
   expect(tmuxCalls[0]).toEqual(['kitten', '@', '--to', 'unix:@kitty-99', 'focus-window', '--match', 'id:7'])
   expect(await text(/worktree-agent-a558ed/)).toBe('⊞ worktree-agent-a558ed 2')

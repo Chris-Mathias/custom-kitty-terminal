@@ -1,6 +1,6 @@
-ultima-sessao.kitty-session
+last-session.kitty-session
 *.tmp
 *.bak-*
-claude/painel-sessao/.claude-plugin/types/
-claude/painel-sessao/tsconfig.json
+claude/session-panel/.claude-plugin/types/
+claude/session-panel/tsconfig.json
 .superpowers/

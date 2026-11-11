@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# claude-panel [claude arguments]
+# Runs Claude Code with the side panel (session-panel mod) and, when it
+# exits, leaves the shell open in the same place. Used by `ct` and by the
+# kitty shortcuts (Ctrl+Alt+N / Ctrl+Alt+T).
+
+# Side panel (session-panel mod), installed by install.sh.
+# Can be overridden with the CLAUDE_PANEL_DIR variable.
+PANEL="${CLAUDE_PANEL_DIR:-$HOME/.local/share/claude-mods/session-panel}"
+
+claude_bin=$(command -v claude || echo "$HOME/.local/bin/claude")
+args=()
+[[ -d $PANEL ]] && args+=(--plugin-dir "$PANEL")
+
+"$claude_bin" "${args[@]}" "$@"
+exec "${SHELL:-/usr/bin/zsh}"
