@@ -1,8 +1,8 @@
 # custom-kitty-terminal
 
-A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claude.com) setup for working with many sessions and many repositories at once, on Fedora (GNOME).
+A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claude.com) setup for working with many sessions and many repositories at once, on Linux. Made on Fedora with GNOME; the installer also handles Debian, Ubuntu, Linux Mint, Arch and openSUSE, and the GNOME, KDE Plasma and Cinnamon desktops.
 
-- **Looks like Ptyxis out of the box**: GNOME palette, Adwaita Mono font, GNOME title bar.
+- **Looks like GNOME's terminal out of the box**: GNOME palette, Adwaita Mono font (the system's monospace font when it isn't available), the desktop's own title bar.
 - **Settings menu** (`ct config`, `Ctrl+Shift+F2` or the ⚙ at the right of the tab bar): language (English or Português), look, Claude Code, behavior and every shortcut — see [Settings](#settings).
 - **Six themes**, each changing kitty and Claude Code together: Fedora, Catppuccin (Mocha), Tokyo Night, Dracula, Gruvbox (dark) and Light.
 - **Slanted tabs** on top, with the title Claude gives each session and a `+` button.
@@ -14,20 +14,23 @@ A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claud
 
 ## Install
 
-One command (Fedora, Debian/Ubuntu, Arch or openSUSE — it uses dnf, apt, pacman or zypper), which also updates an existing install:
+One command, which also updates an existing install:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Chris-Mathias/custom-kitty-terminal/main/bootstrap.sh | bash
 ```
 
-It installs what is missing (kitty, jq, git, python3, the Adwaita Mono and Symbola fonts), asks whether to install Claude Code and whether to make kitty your default terminal, clones the repository into `~/.local/share/custom-kitty-terminal` (`CKT_DIR` changes it) and runs `install.sh`. zsh is installed only with `--zsh` (or when you say yes to it), set up like the author's: oh-my-zsh with the `bira` theme and the `git`, `zsh-autosuggestions` and `zsh-syntax-highlighting` plugins. An existing `~/.zshrc` is never replaced, only completed; `--no-oh-my-zsh` gives a plain zsh. `--yes` takes the defaults without asking. Font packages that a distribution doesn't have are skipped with a note. Without Claude Code everything kitty-side still works; the side panel, the status line and the Claude shortcuts need it.
+It installs what is missing with your package manager (dnf, apt, pacman or zypper): kitty, jq, git, python3 and the Adwaita Mono and Symbola fonts. kitty must be 0.46 or newer; when the distribution's is older (Debian, Ubuntu and Mint) or missing, the official kitty build is installed in `~/.local/kitty.app` instead. It asks whether to install Claude Code and whether to make kitty your default terminal, clones the repository into `~/.local/share/custom-kitty-terminal` (`CKT_DIR` changes it) and runs `install.sh`. zsh is installed only with `--zsh` (or when you say yes to it), set up like the author's: oh-my-zsh with the `bira` theme and the `git`, `zsh-autosuggestions` and `zsh-syntax-highlighting` plugins. An existing `~/.zshrc` is never replaced, only completed; `--no-oh-my-zsh` gives a plain zsh. `--yes` takes the defaults without asking. Font packages that a distribution doesn't have are skipped with a note. Without Claude Code everything kitty-side still works; the side panel, the status line and the Claude shortcuts need it.
 
 ### By hand
 
 Dependencies:
 
 ```sh
-sudo dnf install kitty jq git python3
+# kitty 0.46 or newer, jq, git and python3, e.g.
+sudo dnf install kitty jq git python3          # Fedora
+sudo apt install jq git python3                # Debian / Ubuntu / Mint, plus the official kitty:
+curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
 # Claude Code 2.1.287 or newer (the side panel needs it)
 ```
 
@@ -51,7 +54,7 @@ Upgrading from the older Portuguese version of this repo: just run `./install.sh
 
 | Group | Settings |
 |---|---|
-| Appearance | theme, font, font size, line height, padding, tab style (slanted, round, angled, separators), tab bar on top or bottom, transparency, cursor shape and blink, title bar (GNOME, kitty's own, none — needs a kitty restart), ligatures |
+| Appearance | theme, font, font size, line height, padding, tab style (slanted, round, angled, separators), tab bar on top or bottom, transparency, cursor shape and blink, title bar (the system's, kitty's own, none — needs a kitty restart), ligatures |
 | Claude Code | response style (off by default; when on: response language and length — short, balanced, detailed), status line items, the subagent list below the prompt (shown or hidden — the subagents are also in the side panel), side panel sections (sessions, subagents, tasks, git, files), their order and whether it opens by itself, phrases while thinking (ours or Claude's) |
 | Behavior | reopen tabs on start, confirm before closing (only if something runs, always, never), whether kitty keeps `Ctrl+W`/`Ctrl+N`, scrollback lines, bell |
 | Shortcuts | every shortcut in the table below: pick one, choose "Record new keys" and press the combination. If it's already used (by this project or by kitty), the menu asks before swapping. "Reset to default" and "Reset all" undo changes. |
@@ -109,7 +112,8 @@ The list of saved tabs (`~/.config/kitty/last-session.kitty-session`) and the fi
 
 ## Notes
 
-- kitty runs through XWayland (`linux_display_server x11`) so GNOME draws the title bar with the standard buttons. For kitty's own title bar, delete that line.
+- On GNOME, the system's title bar makes kitty run through XWayland (`linux_display_server x11`): GNOME only draws its own title bar for X11 windows. Other desktops draw it for Wayland windows too, so kitty runs natively there. Pick "kitty's own" in Settings → Appearance → Title bar to avoid XWayland on GNOME.
+- **Default terminal and Ctrl+Alt+T** (when you say yes in the installer): on GNOME, Ctrl+Alt+T opens a Claude tab in kitty (`ckt-claude-tab`) and kitty replaces the terminal in the dock; on KDE Plasma, kitty becomes the default terminal and Ctrl+Alt+T moves from Konsole to `ckt-claude-tab` (after logging out and back in); on Cinnamon (Mint), kitty becomes the terminal Ctrl+Alt+T opens. On other desktops, set it in their settings; `xdg-terminal-exec` users get kitty first everywhere.
 - The ⚙ button relies on a small hook into kitty's tab bar code. If a kitty update breaks that hook, the button simply disappears and the tabs keep working; `ct config` and `Ctrl+Shift+F2` still open the menu.
 - The Claude shortcuts call your `$SHELL` in interactive mode, to load your `~/.zshrc`.
 - The side panel runs inside Claude Code with your user's permissions; it reads `git`, `claude agents --json`, `~/.claude/sessions` and the settings file, and talks to kitty over the control socket (`allow_remote_control socket-only`).
