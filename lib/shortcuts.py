@@ -25,7 +25,8 @@ _CLAUDE = "sh -c 'exec \"${SHELL:-/bin/bash}\" -ic \"$HOME/.local/bin/claude-pan
 ACTIONS: tuple[Action, ...] = (
     Action("claude_tab", "ctrl+alt+t", f"launch --type=tab --cwd=current {_CLAUDE}", "shortcut.claude_tab"),
     Action("claude_stack", "ctrl+alt+n",
-           f"combine : goto_layout stack : launch --type=window --cwd=current {_CLAUDE}", "shortcut.claude_stack"),
+           # "|" separates the combined actions: kitty would also split on the ":" of ${SHELL:-...}
+           f"combine | goto_layout stack | launch --type=window --cwd=current {_CLAUDE}", "shortcut.claude_stack"),
     Action("prev_session", "alt+up", "previous_window", "shortcut.prev_session"),
     Action("next_session", "alt+down", "next_window", "shortcut.next_session"),
     Action("toggle_stack", "ctrl+alt+z", "toggle_layout stack", "shortcut.toggle_stack"),

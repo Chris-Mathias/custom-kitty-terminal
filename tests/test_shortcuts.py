@@ -1,4 +1,7 @@
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -23,7 +26,7 @@ TODAY = {
     'map ctrl+n new_tab_with_cwd',
     'map ctrl+w kitten close_tab.py',
     'map ctrl+alt+w kitten close_tab.py window',
-    'map ctrl+alt+n combine : goto_layout stack : launch --type=window --cwd=current sh -c \'exec "${SHELL:-/bin/bash}" -ic "$HOME/.local/bin/claude-panel"\'',
+    'map ctrl+alt+n combine | goto_layout stack | launch --type=window --cwd=current sh -c \'exec "${SHELL:-/bin/bash}" -ic "$HOME/.local/bin/claude-panel"\'',
     'map ctrl+alt+t launch --type=tab --cwd=current sh -c \'exec "${SHELL:-/bin/bash}" -ic "$HOME/.local/bin/claude-panel"\'',
     'map alt+up previous_window',
     'map alt+down next_window',
@@ -114,6 +117,27 @@ class ShortcutsTest(unittest.TestCase):
     def test_assign_ignores_unknown_ids(self):
         s, _ = sc.assign(settings(shortcuts={"old_id": "ctrl+x"}), "settings", "ctrl+alt+s")
         self.assertEqual(sc.keys_for(s)["settings"], "ctrl+alt+s")
+
+    @unittest.skipUnless(shutil.which("kitty"), "kitty not installed")
+    def test_kitty_can_parse_every_action(self):
+        with tempfile.TemporaryDirectory() as d:
+            conf = Path(d, "kitty.conf")
+            conf.write_text(sc.shortcuts_conf(settings()))
+            script = Path(d, "check.py")
+            script.write_text(
+                "from kitty.config import load_config\n"
+                f"o = load_config({str(conf)!r})\nbad = []\n"
+                "for mode in o.keyboard_modes.values():\n"
+                "    for defs in mode.keymap.values():\n"
+                "        for kd in defs:\n"
+                "            try:\n"
+                "                o.alias_map.resolve_aliases(kd.definition, 'map')\n"
+                "            except Exception as e:\n"
+                "                bad.append(f'{kd.definition} -> {e}')\n"
+                "print('BAD', len(bad)); [print(b) for b in bad]\n")
+            r = subprocess.run(["kitty", "+runpy", f"exec(open({str(script)!r}).read())"],
+                               capture_output=True, text=True, timeout=60)
+            self.assertIn("BAD 0", r.stdout, r.stdout + r.stderr)
 
 
 if __name__ == "__main__":
