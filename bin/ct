@@ -13,7 +13,14 @@ source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/ckt.sh"
 
 case ${1:-} in
   -h|--help) ckt_t cli.ct_help; echo; exit 0 ;;
-  config) shift; exec "$HOME/.local/bin/ct-config" "$@" ;;
+  config)
+    shift
+    menu="$HOME/.local/bin/ct-config"
+    # Inside kitty: as an overlay on the current window; elsewhere: right here.
+    if [[ -n ${KITTY_WINDOW_ID:-} ]] && command -v kitten >/dev/null; then
+      exec kitten @ launch --type=overlay --title="$(ckt_t menu.title)" "$menu" "$@" >/dev/null
+    fi
+    exec "$menu" "$@" ;;
 esac
 
 same_tab=0

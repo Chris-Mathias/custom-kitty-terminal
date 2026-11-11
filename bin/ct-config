@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""ct-config: settings menu for custom-kitty-terminal (language, theme, font, font size).
+
+Opened by `ct config`, by ctrl+shift+f2 and by the ⚙ button in kitty's tab bar.
+Every change is saved to ~/.config/custom-kitty-terminal/settings.json and applied
+right away (kitty reloads; Claude Code gets the new theme, style and verbs).
+"""
+import curses
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+
+import ckt  # noqa: E402
+from menu import Menu  # noqa: E402
+
+KEYS = {
+    curses.KEY_UP: "up", ord("k"): "up",
+    curses.KEY_DOWN: "down", ord("j"): "down",
+    curses.KEY_ENTER: "enter", 10: "enter", 13: "enter", curses.KEY_RIGHT: "enter", ord("l"): "enter",
+    27: "back", curses.KEY_LEFT: "back", ord("h"): "back", curses.KEY_BACKSPACE: "back", 127: "back",
+    ord("q"): "quit", ord("Q"): "quit",
+}
+
+
+def put(win, y, x, text, attr=0):
+    h, w = win.getmaxyx()
+    if 0 <= y < h and x < w:
+        try:
+            win.addnstr(y, x, text, max(0, w - x - 1), attr)
+        except curses.error:
+            pass
+
+
+def draw(win, m: Menu, colors):
+    accent, dim, mark = colors
+    win.erase()
+    h, w = win.getmaxyx()
+    v = m.view()
+    top = m.view() if v["level"] == "top" else None
+    t = lambda key: ckt.t(key, m.settings["language"])  # noqa: E731
+
+    title = t("menu.title") + ("" if v["level"] == "top" else f" › {v['title']}")
+    put(win, 1, 2, title, accent | curses.A_BOLD)
+    hint = t("menu.help_top" if v["level"] == "top" else "menu.help_sub")
+    put(win, 1, max(len(title) + 6, w - len(hint) - 3), hint, dim)
+
+    items = m.items()
+    label_w = max(len(label) for label, _ in items) + 4
+    selected = v["cursor"] if v["level"] == "top" else m.item
+    for i, (label, value) in enumerate(items):
+        y = 3 + i
+        if i == selected:
+            put(win, y, 2, " " * (label_w + len(value) + 6), curses.A_REVERSE)
+            put(win, y, 3, label.ljust(label_w) + value + "  ›", curses.A_REVERSE | (curses.A_BOLD if top is None else 0))
+        else:
+            put(win, y, 3, label.ljust(label_w), 0)
+            put(win, y, 3 + label_w, value, dim)
+
+    if v["level"] == "sub":
+        rows = v["rows"]
+        box_top = 4 + len(items)
+        room = max(3, h - box_top - 3)
+        start = min(max(0, v["cursor"] - room // 2), max(0, len(rows) - room))
+        shown = rows[start:start + room]
+        width = min(w - 6, max(len(v["title"]) + 6, max(len(r) for r in rows) + 4))
+        put(win, box_top, 2, "┌ " + v["title"] + " " + "─" * max(0, width - len(v["title"]) - 3) + "┐", accent)
+        for n, row in enumerate(shown):
+            y = box_top + 1 + n
+            put(win, y, 2, "│", accent)
+            attr = curses.A_REVERSE if start + n == v["cursor"] else 0
+            put(win, y, 3, (" " + row).ljust(width - 1)[: width - 1], attr)
+            if row.startswith("●") and start + n != v["cursor"]:
+                put(win, y, 4, "●", mark)
+            put(win, y, 2 + width, "│", accent)
+        put(win, box_top + 1 + len(shown), 2, "└" + "─" * (width - 1) + "┘", accent)
+        if start > 0:
+            put(win, box_top, 2 + width - 2, "↑", dim)
+        if start + room < len(rows):
+            put(win, box_top + 1 + len(shown), 2 + width - 2, "↓", dim)
+
+    if m.message:
+        put(win, h - 2, 2, m.message, dim)
+    win.refresh()
+
+
+def run(win):
+    curses.curs_set(0)
+    curses.use_default_colors()
+    curses.set_escdelay(25)
+    # ANSI colors follow the kitty theme: blue is the theme's accent-ish color 4.
+    curses.init_pair(1, curses.COLOR_BLUE, -1)
+    curses.init_pair(2, curses.COLOR_GREEN, -1)
+    colors = (curses.color_pair(1), curses.A_DIM, curses.color_pair(2))
+
+    m = Menu(ckt.load_settings(), ckt.mono_fonts())
+    while True:
+        draw(win, m, colors)
+        action = m.key(KEYS.get(win.getch(), ""))
+        if action == "quit":
+            return
+        if action == "apply":
+            ckt.save_settings(m.settings)
+            problems = ckt.apply(m.settings)
+            m.message = " ".join(problems) or ckt.t("menu.applied", m.settings["language"])
+
+
+if __name__ == "__main__":
+    try:
+        curses.wrapper(run)
+    except KeyboardInterrupt:
+        pass
