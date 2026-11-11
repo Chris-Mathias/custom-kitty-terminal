@@ -3,3 +3,4 @@ ultima-sessao.kitty-session
 *.bak-*
 claude/painel-sessao/.claude-plugin/types/
 claude/painel-sessao/tsconfig.json
+.superpowers/
