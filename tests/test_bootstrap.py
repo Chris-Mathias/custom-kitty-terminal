@@ -20,11 +20,21 @@ case "$1 $3" in
   "get custom-keybindings") echo "@as []" ;;
 esac''',
     "git": f'''echo "git $*" >> "$LOG"
-if [ "$1" = clone ]; then cp -r "{REPO}" "$3" && rm -rf "$3/.git" && mkdir "$3/.git"; fi''',
+if [ "$1" = clone ]; then
+  dest=$(eval echo "\\${{$#}}"); url=$(eval echo "\\${{$(($# - 1))}}")
+  case $url in
+    *ohmyzsh*) mkdir -p "$dest/templates" "$dest/custom/plugins" && printf 'export ZSH="$HOME/.oh-my-zsh"\\nZSH_THEME="robbyrussell"\\nplugins=(git)\\nsource $ZSH/oh-my-zsh.sh\\n' > "$dest/templates/zshrc.zsh-template" ;;
+    *zsh-*) mkdir -p "$dest" ;;
+    *) cp -r "{REPO}" "$dest" && rm -rf "$dest/.git" && mkdir "$dest/.git" ;;
+  esac
+fi''',
     "kitty": "exit 0",
     "pkill": "exit 0",
     "fc-list": "printf 'Adwaita Mono\\nSymbola\\n'",
     "zsh": "exit 0",
+    "apt-get": 'echo "apt-get $*" >> "$LOG"',
+    "dpkg": "exit 1",
+    "pacman": 'echo "pacman $*" >> "$LOG"; [ "$1" = -Q ] && exit 1; exit 0',
 }
 
 
@@ -46,6 +56,24 @@ class BootstrapTest(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def only(self, *managers):
+        """Hides the package managers that aren't wanted (dnf is a stub; others may be real)."""
+        hidden = Path(self.tmp.name, "hidden")
+        hidden.mkdir(exist_ok=True)
+        stubs = Path(self.tmp.name, "stubs")
+        for name in ("dnf", "rpm", "apt-get", "dpkg", "pacman"):
+            if name not in managers and (stubs / name).exists():
+                (stubs / name).rename(hidden / name)
+        # Real package managers on this machine must not be found either.
+        self.env["PATH"] = f"{stubs}:{self.tmp.name}/sysbin"
+        sysbin = Path(self.tmp.name, "sysbin")
+        sysbin.mkdir(exist_ok=True)
+        for tool in ("bash", "sh", "env", "python3", "jq", "sed", "cp", "rm", "mkdir", "mv", "ln", "readlink", "date",
+                     "dirname", "basename", "cat", "tr", "grep", "touch", "printf", "id", "realpath", "chmod", "ls"):
+            real = subprocess.run(["bash", "-c", f"command -v {tool}"], capture_output=True, text=True).stdout.strip()
+            if real and not (sysbin / tool).exists():
+                (sysbin / tool).symlink_to(real)
 
     def run_bootstrap(self, *args):
         r = subprocess.run(["bash", str(REPO / "bootstrap.sh"), *args], capture_output=True, text=True,
@@ -98,6 +126,60 @@ class BootstrapTest(unittest.TestCase):
         self.run_bootstrap("--yes")
         self.assertEqual((self.home / ".config/xdg-terminals.list").read_text(),
                          "kitty.desktop\norg.gnome.Ptyxis.desktop\n")
+
+    def test_zsh_like_the_authors_on_a_new_machine(self):
+        _, calls = self.run_bootstrap("--yes", "--zsh")
+        for repo in ("ohmyzsh/ohmyzsh", "zsh-users/zsh-autosuggestions", "zsh-users/zsh-syntax-highlighting"):
+            self.assertIn(repo, calls)
+        zshrc = (self.home / ".zshrc").read_text()
+        self.assertIn('ZSH_THEME="bira"', zshrc)
+        self.assertIn("plugins=(git zsh-autosuggestions zsh-syntax-highlighting)", zshrc)
+        self.assertIn("# >>> custom-kitty-terminal >>>", zshrc)
+
+    def test_existing_oh_my_zsh_gets_only_the_missing_plugins(self):
+        (self.home / ".oh-my-zsh/custom/plugins/zsh-autosuggestions").mkdir(parents=True)
+        (self.home / ".zshrc").write_text('export ZSH="$HOME/.oh-my-zsh"\nZSH_THEME="agnoster"\n'
+                                          "plugins=(git zsh-autosuggestions)\nsource $ZSH/oh-my-zsh.sh\n")
+        _, calls = self.run_bootstrap("--yes", "--zsh")
+        self.assertNotIn("ohmyzsh/ohmyzsh", calls)
+        self.assertNotIn("zsh-users/zsh-autosuggestions", calls)
+        zshrc = (self.home / ".zshrc").read_text()
+        self.assertIn('ZSH_THEME="agnoster"', zshrc)  # their theme stays
+        self.assertIn("plugins=(git zsh-autosuggestions zsh-syntax-highlighting)", zshrc)
+
+    def test_zshrc_without_oh_my_zsh_gets_a_block(self):
+        (self.home / ".zshrc").write_text("alias ll='ls -l'\n")
+        self.run_bootstrap("--yes", "--zsh")
+        zshrc = (self.home / ".zshrc").read_text()
+        self.assertIn("alias ll='ls -l'", zshrc)
+        self.assertIn("source $ZSH/oh-my-zsh.sh", zshrc)
+        self.assertIn("zsh-syntax-highlighting", zshrc)
+
+    def test_oh_my_zsh_can_be_refused(self):
+        _, calls = self.run_bootstrap("--yes", "--zsh", "--no-oh-my-zsh")
+        self.assertIn("chsh -s", calls)
+        self.assertNotIn("ohmyzsh", calls)
+
+    def test_debian_and_ubuntu_use_apt(self):
+        self.only("apt-get", "dpkg")
+        _, calls = self.run_bootstrap("--yes", "--no-claude")
+        self.assertIn("apt-get install -y", calls)
+        self.assertIn("python3", calls)
+        self.assertNotIn("dnf", calls)
+
+    def test_arch_uses_pacman(self):
+        self.only("pacman")
+        _, calls = self.run_bootstrap("--yes", "--no-claude")
+        line = next(l for l in calls.splitlines() if l.startswith("pacman -S"))
+        self.assertIn("--needed", line)
+        self.assertIn(" python", line)
+        self.assertNotIn("python3", line)
+
+    def test_unknown_distro_still_installs_when_tools_exist(self):
+        self.only()
+        out, calls = self.run_bootstrap("--yes", "--no-claude")
+        self.assertIn("install these yourself", out)
+        self.assertTrue((self.home / ".config/kitty/kitty.conf").is_symlink())
 
 
 if __name__ == "__main__":

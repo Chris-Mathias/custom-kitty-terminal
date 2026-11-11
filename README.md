@@ -14,13 +14,13 @@ A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claud
 
 ## Install
 
-One command (Fedora), which also updates an existing install:
+One command (Fedora, Debian/Ubuntu, Arch or openSUSE — it uses dnf, apt, pacman or zypper), which also updates an existing install:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Chris-Mathias/custom-kitty-terminal/main/bootstrap.sh | bash
 ```
 
-It installs what is missing (kitty, jq, git, python3, the Adwaita Mono and Symbola fonts), asks whether to install Claude Code and whether to make kitty your default terminal, clones the repository into `~/.local/share/custom-kitty-terminal` (`CKT_DIR` changes it) and runs `install.sh`. zsh is installed only with `--zsh`; `--yes` takes the defaults without asking. Without Claude Code everything kitty-side still works; the side panel, the status line and the Claude shortcuts need it.
+It installs what is missing (kitty, jq, git, python3, the Adwaita Mono and Symbola fonts), asks whether to install Claude Code and whether to make kitty your default terminal, clones the repository into `~/.local/share/custom-kitty-terminal` (`CKT_DIR` changes it) and runs `install.sh`. zsh is installed only with `--zsh` (or when you say yes to it), set up like the author's: oh-my-zsh with the `bira` theme and the `git`, `zsh-autosuggestions` and `zsh-syntax-highlighting` plugins. An existing `~/.zshrc` is never replaced, only completed; `--no-oh-my-zsh` gives a plain zsh. `--yes` takes the defaults without asking. Font packages that a distribution doesn't have are skipped with a note. Without Claude Code everything kitty-side still works; the side panel, the status line and the Claude shortcuts need it.
 
 ### By hand
 
