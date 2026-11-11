@@ -566,6 +566,10 @@ const fileLabel = (path: string, n: number): { base: string; dir?: string } => {
   return dir && cells(base) + 1 + cells(dir) <= n ? { base, dir } : { base }
 }
 
+// Under the mouse a file name or [Image #n] looks like a link (underlined, in the accent
+// color): Ctrl+click opens it. Only the name changes; the row isn't inverted.
+const LINK_HOVER = { underline: true, color: 'claude' } as const
+
 const TODO_MARK: Record<TodoStatus, string> = { completed: '✓', in_progress: '◐', pending: '○' }
 const TODO_COLOR: Record<TodoStatus, string> = { completed: 'success', in_progress: 'permission', pending: 'inactive' }
 const TOUCH_COLOR: Record<TouchKind, string> = { read: 'inactive', edited: 'warning', created: 'success' }
@@ -865,13 +869,15 @@ export const register: Register = on => {
         )}
         {g.files.map(file => {
           const label = fileLabel(file.path, width - 3)
-          const row = (
-            <Text>
-              <Text color={GIT_COLOR(file.status)}>{file.status.padEnd(2)}</Text> {label.base}
-              {label.dir && <Text dimColor> {label.dir}</Text>}
-            </Text>
+          return (
+            <Box key={`git-${file.path}`}>
+              <Text>
+                <Text color={GIT_COLOR(file.status)}>{file.status.padEnd(2)}</Text>{' '}
+                <Text hover={LINK_HOVER}>{label.base}</Text>
+                {label.dir && <Text dimColor> {label.dir}</Text>}
+              </Text>
+            </Box>
           )
-          return row
         })}
         {g.worktrees.map(wt => (
           <Text>
@@ -908,10 +914,12 @@ export const register: Register = on => {
             const mark = TOUCH_MARK[item.kind]
             const shown = fileLabel(item.path, width - 1 - cells(mark))
             return (
-              <Text>
-                <Text color={TOUCH_COLOR[item.kind]}>{mark}</Text> {shown.base}
-                {shown.dir && <Text dimColor> {shown.dir}</Text>}
-              </Text>
+              <Box key={`file-${item.path}`}>
+                <Text>
+                  <Text color={TOUCH_COLOR[item.kind]}>{mark}</Text> <Text hover={LINK_HOVER}>{shown.base}</Text>
+                  {shown.dir && <Text dimColor> {shown.dir}</Text>}
+                </Text>
+              </Box>
             )
           })}
         </Box>
@@ -930,7 +938,11 @@ export const register: Register = on => {
         <Box flexDirection="column" gap={1}>
           {[...im].reverse().slice(0, 3).map(img => (
             <Box key={`img-${img.n}`} flexDirection="column">
-              <Text color="claude">[Image #{img.n}]</Text>
+              <Box key={`img-label-${img.n}`}>
+                <Text color="claude" hover={LINK_HOVER}>
+                  [Image #{img.n}]
+                </Text>
+              </Box>
               {img.isPng && Image && (
                 <Image
                   key={`img-${img.n}-${img.file}`}
