@@ -20,26 +20,28 @@ class Action(NamedTuple):
     label_key: str
 
 
+# --cwd=oldest: the folder of the window's shell or Claude. --cwd=current follows the
+# newest foreground process, which can be a helper such as wl-copy sitting in "/".
 _CLAUDE = "sh -c 'exec \"${SHELL:-/bin/bash}\" -ic \"$HOME/.local/bin/claude-panel\"'"
 
 ACTIONS: tuple[Action, ...] = (
-    Action("claude_tab", "ctrl+alt+t", f"launch --type=tab --cwd=current {_CLAUDE}", "shortcut.claude_tab"),
+    Action("claude_tab", "ctrl+alt+t", f"launch --type=tab --cwd=oldest {_CLAUDE}", "shortcut.claude_tab"),
     Action("claude_stack", "ctrl+alt+n",
            # "|" separates the combined actions: kitty would also split on the ":" of ${SHELL:-...}
-           f"combine | goto_layout stack | launch --type=window --cwd=current {_CLAUDE}", "shortcut.claude_stack"),
+           f"combine | goto_layout stack | launch --type=window --cwd=oldest {_CLAUDE}", "shortcut.claude_stack"),
     Action("prev_session", "alt+up", "previous_window", "shortcut.prev_session"),
     Action("next_session", "alt+down", "next_window", "shortcut.next_session"),
     Action("toggle_stack", "ctrl+alt+z", "toggle_layout stack", "shortcut.toggle_stack"),
     Action("close_session", "ctrl+alt+w", "kitten close_tab.py window", "shortcut.close_session"),
     Action("close_tab", "ctrl+w", "kitten close_tab.py", "shortcut.close_tab"),
-    Action("new_tab", "ctrl+n", "new_tab_with_cwd", "shortcut.new_tab"),
-    Action("new_tab_2", "alt+t", "new_tab_with_cwd", "shortcut.new_tab_2"),
-    Action("new_tab_3", "ctrl+shift+t", "new_tab_with_cwd", "shortcut.new_tab_3"),
+    Action("new_tab", "ctrl+n", "launch --type=tab --cwd=oldest", "shortcut.new_tab"),
+    Action("new_tab_2", "alt+t", "launch --type=tab --cwd=oldest", "shortcut.new_tab_2"),
+    Action("new_tab_3", "ctrl+shift+t", "launch --type=tab --cwd=oldest", "shortcut.new_tab_3"),
     *(Action(f"tab_{n}", f"alt+{n}", f"goto_tab {n}", f"shortcut.tab_{n}") for n in range(1, 7)),
     Action("prev_tab", "alt+left", "previous_tab", "shortcut.prev_tab"),
     Action("next_tab", "alt+right", "next_tab", "shortcut.next_tab"),
-    Action("split_right", "ctrl+shift+enter", "launch --cwd=current --location=vsplit", "shortcut.split_right"),
-    Action("split_below", "ctrl+shift+minus", "launch --cwd=current --location=hsplit", "shortcut.split_below"),
+    Action("split_right", "ctrl+shift+enter", "launch --cwd=oldest --location=vsplit", "shortcut.split_right"),
+    Action("split_below", "ctrl+shift+minus", "launch --cwd=oldest --location=hsplit", "shortcut.split_below"),
     Action("settings", "ctrl+shift+f2", "launch --type=overlay sh -c 'exec \"$HOME/.local/bin/ct-config\"'",
            "shortcut.settings"),
 )

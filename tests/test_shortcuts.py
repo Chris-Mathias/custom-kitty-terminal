@@ -21,19 +21,19 @@ TODAY = {
     'map alt+6 goto_tab 6',
     'map alt+left previous_tab',
     'map alt+right next_tab',
-    'map alt+t new_tab_with_cwd',
-    'map ctrl+shift+t new_tab_with_cwd',
-    'map ctrl+n new_tab_with_cwd',
+    'map alt+t launch --type=tab --cwd=oldest',
+    'map ctrl+shift+t launch --type=tab --cwd=oldest',
+    'map ctrl+n launch --type=tab --cwd=oldest',
     'map ctrl+w kitten close_tab.py',
     'map ctrl+alt+w kitten close_tab.py window',
-    'map ctrl+alt+n combine | goto_layout stack | launch --type=window --cwd=current sh -c \'exec "${SHELL:-/bin/bash}" -ic "$HOME/.local/bin/claude-panel"\'',
-    'map ctrl+alt+t launch --type=tab --cwd=current sh -c \'exec "${SHELL:-/bin/bash}" -ic "$HOME/.local/bin/claude-panel"\'',
+    'map ctrl+alt+n combine | goto_layout stack | launch --type=window --cwd=oldest sh -c \'exec "${SHELL:-/bin/bash}" -ic "$HOME/.local/bin/claude-panel"\'',
+    'map ctrl+alt+t launch --type=tab --cwd=oldest sh -c \'exec "${SHELL:-/bin/bash}" -ic "$HOME/.local/bin/claude-panel"\'',
     'map alt+up previous_window',
     'map alt+down next_window',
     'map ctrl+alt+z toggle_layout stack',
     'map ctrl+shift+f2 launch --type=overlay sh -c \'exec "$HOME/.local/bin/ct-config"\'',
-    'map ctrl+shift+enter launch --cwd=current --location=vsplit',
-    'map ctrl+shift+minus launch --cwd=current --location=hsplit',
+    'map ctrl+shift+enter launch --cwd=oldest --location=vsplit',
+    'map ctrl+shift+minus launch --cwd=oldest --location=hsplit',
 }
 
 
@@ -48,6 +48,15 @@ def maps(text):
 class ShortcutsTest(unittest.TestCase):
     def test_default_conf_matches_today(self):
         self.assertEqual(maps(sc.shortcuts_conf(settings())), TODAY)
+
+    def test_new_windows_open_in_the_folder_of_the_window(self):
+        # --cwd=current follows the newest foreground process, which can be a
+        # helper such as wl-copy sitting in "/"; oldest is the shell or Claude.
+        for line in maps(sc.shortcuts_conf(settings())):
+            self.assertNotIn("--cwd=current", line)
+            self.assertNotIn("new_tab_with_cwd", line)
+            if " launch " in line and "--type=overlay" not in line:
+                self.assertIn("--cwd=oldest", line)
 
     def test_capture_mode_defined(self):
         conf = sc.shortcuts_conf(settings())
