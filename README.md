@@ -14,6 +14,16 @@ A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claud
 
 ## Install
 
+One command (Fedora), which also updates an existing install:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Chris-Mathias/custom-kitty-terminal/main/bootstrap.sh | bash
+```
+
+It installs what is missing (kitty, jq, git, python3, the Adwaita Mono and Symbola fonts), asks whether to install Claude Code and whether to make kitty your default terminal, clones the repository into `~/.local/share/custom-kitty-terminal` (`CKT_DIR` changes it) and runs `install.sh`. zsh is installed only with `--zsh`; `--yes` takes the defaults without asking. Without Claude Code everything kitty-side still works; the side panel, the status line and the Claude shortcuts need it.
+
+### By hand
+
 Dependencies:
 
 ```sh
@@ -29,7 +39,7 @@ cd custom-kitty-terminal
 ./install.sh
 ```
 
-`install.sh` links each file of this repository into place (symbolic links), keeps whatever was there with a `.bak-<date>` suffix, merges only the keys this project owns into `~/.claude/settings.json` (theme, spinner verbs, status lines; a response style only if you turn it on) and adds a small `claude()` function to `~/.zshrc` so that `claude` opens with the side panel. It starts in English; switch to Portuguese with `ct config`. To update later: `git pull`, then `./install.sh` again (it regenerates the files the settings menu writes).
+`install.sh` links each file of this repository into place (symbolic links), keeps whatever was there with a `.bak-<date>` suffix, merges only the keys this project owns into `~/.claude/settings.json` (theme, spinner verbs, status lines; a response style only if you turn it on) and adds a small `claude()` function to `~/.zshrc` and/or `~/.bashrc` so that `claude` opens with the side panel. It starts in English; switch to Portuguese with `ct config`. To update later: `git pull`, then `./install.sh` again (it regenerates the files the settings menu writes).
 
 Close and reopen kitty. The first time it opens an empty tab; from then on it saves and reopens the tabs by itself.
 
