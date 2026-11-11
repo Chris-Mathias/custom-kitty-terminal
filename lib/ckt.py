@@ -262,8 +262,8 @@ def write_kitty_includes(s: dict) -> None:
     write_atomic(gen / "font.conf", HEADER + f"font_family {s['font_family']}\nfont_size {s['font_size']}.0\n")
     write_atomic(gen / "appearance.conf", appearance_conf(s))
     write_atomic(gen / "behavior.conf", behavior_conf(s))
-    if not (gen / "shortcuts.conf").exists():
-        write_atomic(gen / "shortcuts.conf", HEADER)
+    import shortcuts
+    write_atomic(gen / "shortcuts.conf", shortcuts.shortcuts_conf(s))
 
 
 def reload_kitty() -> None:
