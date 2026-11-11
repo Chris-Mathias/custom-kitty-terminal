@@ -17,7 +17,7 @@ _ckt_setting() { # key default allowed...
 }
 
 ckt_lang() { _ckt_setting language en en pt; }
-ckt_theme() { _ckt_setting theme fedora fedora catppuccin tokyo-night dracula gruvbox light; }
+ckt_theme() { _ckt_setting theme fedora fedora catppuccin tokyo-night dracula gruvbox light noctalia; }
 
 ckt_t() {
   local key=$1 lang v
