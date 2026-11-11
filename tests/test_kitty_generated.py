@@ -61,6 +61,10 @@ class GeneratedKittyTest(unittest.TestCase):
                        "startup_session", "watcher", "scrollback_lines", "enable_audio_bell", "disable_ligatures"):
             self.assertFalse(any(l.startswith(prefix) for l in conf), prefix)
         self.assertIn("dynamic_background_opacity yes", conf)
+        # Fixed settings that were in kitty.conf before the menu existed.
+        for line in ("enabled_layouts splits,stack", "remember_window_size yes", "confirm_os_window_close 0",
+                     "allow_remote_control socket-only", "shell_integration enabled"):
+            self.assertIn(line, conf)
         ordered = (REPO / "kitty/kitty.conf").read_text().splitlines()
         includes = [l for l in ordered if l.startswith("include generated/")]
         self.assertEqual(includes, ["include generated/theme.conf", "include generated/font.conf",
