@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface as Engine, ImageProps, Register } from 'claude-code'
+import type { EngineInterface as Engine, ImageProps, Register, RenderChildren } from 'claude-code'
 
 import type { FileTouch, GitInfo, PastedImage, SessionRow, Todo, TodoStatus, TouchKind, Worktree } from '../types'
 
@@ -745,7 +745,7 @@ export const register: Register = on => {
               const kitty = row.kitty
               const canSwitch = Boolean(pane || kitty)
               const closeX = closeButtons && kitty
-              const withClose = (body: unknown) =>
+              const withClose = (body: RenderChildren) =>
                 closeX ? (
                   <Box key={row.id} flexDirection="row" justifyContent="space-between">
                     {body}
@@ -946,7 +946,7 @@ export const register: Register = on => {
         </Box>
       )
 
-    const blocks: Record<Section, [string, unknown]> = {
+    const blocks: Record<Section, [string, RenderChildren]> = {
       sessions: [S['panel.sessions'], sessionRows],
       agents: [S['panel.agents'], agentRows],
       git: [S['panel.git'], gitRows],
