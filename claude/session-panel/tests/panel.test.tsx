@@ -50,7 +50,9 @@ async function mountPanel(
   on('ui.close', () => ({ value: undefined }))
   on('env.get', (_, e) => ({ value: e.name === 'HOME' ? '/home/teste' : undefined }))
   // The panel finds the repo's i18n folder through the plugin folder's real path.
-  on('fs.stat', () => ({ value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: true, realPath: '/repo/claude/session-panel' } }))
+  on('fs.stat', () => ({
+    value: { kind: 'dir', size: 0, mtimeMs: Date.now(), isLink: true, realPath: '/repo/claude/session-panel' },
+  }))
   on('fs.read', (_, e) => {
     const text = files[e.path]
     return text === undefined ? { deny: 'ENOENT: missing' } : { value: text }
@@ -167,4 +169,17 @@ test('the panel stays closed at start when auto open is off', async ($, on) => {
     '/repo/i18n/en.json': EN,
   }, STATUS, { skipCommand: true })
   expect(opened.length).toBe(0)
+})
+
+test('the panel lists the running subagents', async ($, on) => {
+  const agents = JSON.stringify([
+    { id: 'a1', name: 'general-purpose', label: 'Fixing the parser', status: 'running', startTime: 1, tokenCount: 7 },
+  ])
+  const { ui, text } = await mountPanel($, on, {
+    [SETTINGS]: '{"language":"en"}',
+    '/repo/i18n/en.json': EN,
+    '/home/teste/.cache/custom-kitty-terminal/agents/aaa.json': agents,
+  })
+  expect(await text(/general-purpose/)).toBe('◐ general-purpose Fixing the parser')
+  await ui.unmount()
 })

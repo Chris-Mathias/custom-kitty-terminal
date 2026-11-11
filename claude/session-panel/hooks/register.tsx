@@ -20,6 +20,8 @@ const EN = {
   'panel.git': 'GIT',
   'panel.tasks': 'TASKS',
   'panel.files': 'FILES',
+  'panel.agents': 'SUBAGENTS',
+  'panel.no_agents': 'none running',
   'panel.reading': 'reading…',
   'panel.none_open': 'none open',
   'panel.not_a_repo': 'not in a repository',
@@ -51,7 +53,7 @@ async function readJson($: Engine, path: string): Promise<Record<string, unknown
 // ---------- layout ----------
 // Which sections show, in what order, and whether the panel opens by itself
 // (settings menu → Claude Code → Side panel).
-const SECTIONS = ['sessions', 'git', 'tasks', 'files'] as const
+const SECTIONS = ['sessions', 'agents', 'git', 'tasks', 'files'] as const
 type Section = (typeof SECTIONS)[number]
 type Layout = { sections: Section[]; autoOpen: boolean }
 const DEFAULT_LAYOUT: Layout = { sections: [...SECTIONS], autoOpen: true }
@@ -290,6 +292,25 @@ async function refreshSessions($: Engine) {
   }
 }
 
+// ---------- subagents ----------
+// claude/subagent-statusline.sh saves this session's subagent rows on every
+// refresh; a file that stopped changing means the list below the prompt is gone.
+type AgentRow = { id: string; name?: string; label?: string; status?: string }
+const AGENTS_STALE_MS = 20000
+const agents = atom({ plugin: 'session-panel', key: 'agents' } as const, [] as AgentRow[], { shape: 'agents-1' })
+
+async function refreshAgents($: Engine) {
+  try {
+    const [home, id] = await Promise.all([$.env.get('HOME'), $.session.id()])
+    const path = `${home}/.cache/custom-kitty-terminal/agents/${id}.json`
+    const stat = await $.fs.stat(path)
+    const rows = Date.now() - stat.mtimeMs > AGENTS_STALE_MS ? [] : JSON.parse(String(await $.fs.read(path)))
+    await update($, agents, () => (Array.isArray(rows) ? (rows as AgentRow[]) : []))
+  } catch {
+    await update($, agents, () => [])
+  }
+}
+
 // ---------- files and tasks ----------
 async function touch($: Engine, rawPath: string, kind: TouchKind) {
   const cwd = await $.session.cwd()
@@ -339,6 +360,8 @@ export const register: Register = on => {
     // Sessions: the state (busy/idle) is re-read every 4 s; opening or
     // closing a session is noticed in ~1 s by watching the folder where Claude Code
     // records each open session (~/.claude/sessions, one file per process).
+    void refreshAgents($)
+    $.clock.every(2000, () => void refreshAgents($))
     $.clock.every(4000, () => void refreshSessions($))
     const home = await $.env.get('HOME')
     if (home) {
@@ -412,7 +435,9 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     // 1 column of left margin
     const width = Math.max(18, ((e.props as { bodyColumns?: number }).bodyColumns ?? PANE_COLUMNS) - 1)
-    const [s, g, t, f, S] = await Promise.all([read($, sessions), read($, git), read($, todos), read($, files), textOf($)])
+    const [s, g, t, f, S, a] = await Promise.all([
+      read($, sessions), read($, git), read($, todos), read($, files), textOf($), read($, agents),
+    ])
     const branchName = (b: string) => (b === DETACHED ? S['panel.detached_head'] : b)
     const TOUCH_MARK: Record<TouchKind, string> = {
       read: S['panel.mark_read'],
@@ -464,6 +489,31 @@ export const register: Register = on => {
         })}
       </Box>
     )
+
+    // SUBAGENTS
+    const AGENT_LOOK = (status = ''): { mark: string; color: string } =>
+      status === 'completed'
+        ? { mark: '✓', color: 'success' }
+        : status === 'failed' || status === 'killed'
+          ? { mark: '✗', color: 'error' }
+          : { mark: '◐', color: 'permission' }
+    const agentRows =
+      a.length === 0 ? (
+        <Text dimColor>{S['panel.no_agents']}</Text>
+      ) : (
+        <Box flexDirection="column">
+          {a.map(row => {
+            const look = AGENT_LOOK(row.status)
+            const name = row.name ?? 'agent'
+            return (
+              <Text key={row.id}>
+                <Text color={look.color}>{look.mark}</Text> {name}
+                {row.label && <Text dimColor> {fitHead(row.label, Math.max(4, width - name.length - 3))}</Text>}
+              </Text>
+            )
+          })}
+        </Box>
+      )
 
     // GIT
     const gitRows = !g ? (
@@ -533,6 +583,7 @@ export const register: Register = on => {
 
     const blocks: Record<Section, [string, unknown]> = {
       sessions: [S['panel.sessions'], sessionRows],
+      agents: [S['panel.agents'], agentRows],
       git: [S['panel.git'], gitRows],
       tasks: [t.length ? `${S['panel.tasks']} ${done}/${t.length}` : S['panel.tasks'], todoRows],
       files: [S['panel.files'], fileRows],
