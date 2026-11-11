@@ -15,6 +15,7 @@ set -euo pipefail
 
 REPO=$(cd "$(dirname "$0")" && pwd)
 DATE=$(date +%Y%m%d-%H%M%S)
+migrated=0
 
 green=$'\e[32m'; yellow=$'\e[33m'; dim=$'\e[2m'; r=$'\e[0m'
 ok()   { printf '%s✓%s %s\n' "$green" "$r" "$1"; }
@@ -42,7 +43,7 @@ unlink_old() {
   local target=$1
   if [[ -L $target ]]; then
     case $(readlink "$target") in
-      "$REPO"/*) rm "$target"; ok "removed old link $target"; return ;;
+      "$REPO"/*) rm "$target"; migrated=1; ok "removed old link $target"; return ;;
     esac
   fi
   if [[ -e $target || -L $target ]]; then
@@ -143,4 +144,9 @@ PY
 ok "$HOME/.zshrc (claude loads the side panel)"
 
 echo
+if (( migrated )); then
+  # kitty windows opened before the update keep saving tabs the old way until kitty restarts.
+  warn "Upgraded from the Portuguese version: open a new tab (Ctrl+N) in each kitty window first,"
+  warn "so the new tab saver records your tabs, then close and reopen kitty."
+fi
 ok "Done. Close and reopen kitty to finish. Settings: ct config (or the ⚙ in the tab bar)."

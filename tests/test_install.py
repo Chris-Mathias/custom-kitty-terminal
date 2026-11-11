@@ -107,7 +107,8 @@ class InstallTest(unittest.TestCase):
         self.p(".claude/settings.json").write_text(json.dumps({"model": "opus", "outputStyle": "Português conciso"}))
         self.p(".zshrc").write_text(OLD_ZSHRC)
 
-        self.install()
+        out = self.install()
+        self.assertIn("Ctrl+N", out)  # open a new tab before restarting, so the new saver takes over
 
         for gone in (".config/kitty/abas.conf", ".config/kitty/fechar_aba.py", ".config/kitty/salvar_sessao.py",
                      ".local/bin/claude-painel", ".local/bin/claude-restaurar",
@@ -130,6 +131,9 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(claude["model"], "opus")
         self.assertEqual(claude["outputStyle"], "Português conciso")
         self.assertEqual(len(list(self.p(".claude").glob("settings.json.bak-*"))), 1)
+
+    def test_fresh_install_has_no_upgrade_note(self):
+        self.assertNotIn("Ctrl+N", self.install())
 
     def test_idempotent(self):
         self.install()
