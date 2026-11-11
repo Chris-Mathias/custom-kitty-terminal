@@ -58,5 +58,6 @@
   "menu.font_size": "Font size",
   "menu.help_top": "↑↓ move   enter open   q quit",
   "menu.help_sub": "↑↓ move   enter choose   esc back",
-  "menu.applied": "Applied. Claude sessions that are already open may need a restart."
+  "menu.applied": "Applied. Claude sessions that are already open may need a restart.",
+  "dialog.nothing_running": "Nothing is running."
 }

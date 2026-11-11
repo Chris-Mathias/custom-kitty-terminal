@@ -20,7 +20,11 @@ rows=()
 rows+=("")
 rows+=("  ${B}${WHITE}${question}${R}${BOX}")
 rows+=("")
-rows+=("  ${DIM}$(ckt_t dialog.still_running)${R}${BOX}")
+if (( $# )); then
+  rows+=("  ${DIM}$(ckt_t dialog.still_running)${R}${BOX}")
+else
+  rows+=("  ${DIM}$(ckt_t dialog.nothing_running)${R}${BOX}")
+fi
 for p in "$@"; do
   (( ${#p} > inner - 6 )) && p="${p:0:inner-7}…"
   rows+=("   ${YELLOW}●${R}${BOX} ${WHITE}${p}${R}${BOX}")

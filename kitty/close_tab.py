@@ -12,15 +12,27 @@ DIALOG = os.path.join(config_dir, 'close-tab-dialog.sh')
 LIB = os.path.join(os.path.dirname(os.path.realpath(DIALOG)), '..', 'lib')
 
 
+def _ckt():
+    import sys
+    if LIB not in sys.path:
+        sys.path.insert(0, LIB)
+    import ckt
+    return ckt
+
+
 def _t(key: str) -> str:
     try:
-        import sys
-        if LIB not in sys.path:
-            sys.path.insert(0, LIB)
-        import ckt
-        return ckt.t(key)
+        return _ckt().t(key)
     except Exception:
         return key
+
+
+def _decision(running: list) -> str:
+    try:
+        ckt = _ckt()
+        return ckt.close_decision(ckt.load_settings()["confirm_close"], running)
+    except Exception:
+        return "ask" if running else "close"
 
 
 def main(args: list[str]) -> str:
@@ -50,13 +62,14 @@ def handle_result(args: list[str], answer: str, target_window_id: int, boss: Bos
         w = boss.active_window
         if w is None:
             return
-        if not w.has_running_program:
+        running = [_label(w)] if w.has_running_program else []
+        if _decision(running) == 'close':
             boss.mark_window_for_close(w)
             return
-        target, running = f'window:{w.id}', [_label(w)]
+        target = f'window:{w.id}'
     else:
         running = [_label(w) for w in tab if w.has_running_program]
-        if not running:
+        if _decision(running) == 'close':
             boss.close_tab_no_confirm(tab)
             return
         target = f'tab:{tab.id}'

@@ -1,4 +1,5 @@
-# Custom tab bar (tab_bar_style custom): kitty's own slanted powerline tabs
+# Custom tab bar (tab_bar_style custom): kitty's own tab drawing (powerline or
+# separators, per the settings menu)
 # plus a ⚙ button at the right end that opens the settings menu (ct-config).
 #
 # kitty has no API for extra tab bar buttons, so the click is caught by wrapping
@@ -8,7 +9,8 @@
 import os
 
 from kitty.fast_data_types import Screen
-from kitty.tab_bar import DrawData, ExtraData, TabBarData, as_rgb, draw_tab_with_powerline
+from kitty.tab_bar import (DrawData, ExtraData, TabBarData, as_rgb, draw_tab_with_powerline,
+                           draw_tab_with_separator)
 from kitty.utils import color_as_int
 
 # The plain ⚙ is spread over two cells (narrow_symbols in tabs.conf), so it is
@@ -75,6 +77,24 @@ def _install_click_hook() -> bool:
 GEAR_ENABLED = os.path.exists(MENU) and _install_click_hook()
 
 
+def _tab_style() -> str:
+    """The tab style from the settings menu (read again on every config reload)."""
+    try:
+        import sys
+        lib = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib")
+        if lib not in sys.path:
+            sys.path.insert(0, lib)
+        import ckt
+        return ckt.load_settings()["tab_style"]
+    except Exception:
+        return "slanted"
+
+
+# slanted, round and angled are kitty's powerline styles (tab_powerline_style);
+# separators uses kitty's separator drawing.
+TAB_DRAW = draw_tab_with_separator if _tab_style() == "separators" else draw_tab_with_powerline
+
+
 def draw_tab(
     draw_data: DrawData, screen: Screen, tab: TabBarData,
     before: int, max_tab_length: int, index: int, is_last: bool,
@@ -83,7 +103,7 @@ def draw_tab(
     if index == 1 and not extra_data.for_layout:
         # New pass: if the tabs overflow, kitty stops before the last one.
         _set_gear_drawn(screen, False)
-    end = draw_tab_with_powerline(draw_data, screen, tab, before, max_tab_length, index, is_last, extra_data)
+    end = TAB_DRAW(draw_data, screen, tab, before, max_tab_length, index, is_last, extra_data)
     if GEAR_ENABLED and is_last and not extra_data.for_layout:
         start = gear_start(screen.columns)
         drawn = screen.cursor.x < start

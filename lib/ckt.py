@@ -210,11 +210,60 @@ def kitty_dir() -> Path:
     return Path.home() / ".config/kitty"
 
 
+PADDING = {"compact": "2 4", "normal": "4 8", "roomy": "8 16"}
+TITLE_BAR = {
+    # GNOME draws the title bar (Fedora's standard buttons) when kitty runs through XWayland.
+    "gnome": ("linux_display_server x11", "hide_window_decorations no"),
+    "kitty": ("linux_display_server auto", "hide_window_decorations no"),
+    "none": ("linux_display_server auto", "hide_window_decorations yes"),
+}
+HEADER = "# Written by the settings menu (ct config); changes here are overwritten.\n"
+
+
+def appearance_conf(s: dict) -> str:
+    # "separators" is drawn by tab_bar.py; kitty only needs a valid powerline style.
+    powerline = s["tab_style"] if s["tab_style"] != "separators" else "slanted"
+    lines = [
+        f"modify_font cell_height {s['line_height']}%",
+        f"window_padding_width {PADDING[s['padding']]}",
+        f"tab_powerline_style {powerline}",
+        f"tab_bar_edge {s['tab_position']}",
+        f"background_opacity {s['opacity'] / 100:g}" if s["opacity"] < 100 else "background_opacity 1.0",
+        f"cursor_shape {s['cursor_shape']}",
+        f"cursor_blink_interval {-1 if s['cursor_blink'] else 0}",
+        *TITLE_BAR[s["title_bar"]],
+        f"disable_ligatures {'never' if s['ligatures'] else 'always'}",
+    ]
+    return HEADER + "\n".join(lines) + "\n"
+
+
+def behavior_conf(s: dict) -> str:
+    if s["reopen_tabs"]:
+        # Reopens last time's tabs; save_session.py keeps that file up to date.
+        lines = ["startup_session last-session.kitty-session", "watcher save_session.py"]
+    else:
+        lines = ["startup_session none"]
+    lines += [f"scrollback_lines {s['scrollback']}", f"enable_audio_bell {'yes' if s['bell'] else 'no'}"]
+    return HEADER + "\n".join(lines) + "\n"
+
+
+def close_decision(confirm_close: str, running: list) -> str:
+    """For Ctrl+W: "close" right away or "ask" first, per the confirm_close setting."""
+    if confirm_close == "always":
+        return "ask"
+    if confirm_close == "never":
+        return "close"
+    return "ask" if running else "close"
+
+
 def write_kitty_includes(s: dict) -> None:
     gen = kitty_dir() / "generated"
     write_atomic(gen / "theme.conf", (REPO / "themes" / s["theme"] / "kitty.conf").read_text())
-    write_atomic(gen / "font.conf", "# Written by the settings menu (ct config).\n"
-                 f"font_family {s['font_family']}\nfont_size {s['font_size']}.0\n")
+    write_atomic(gen / "font.conf", HEADER + f"font_family {s['font_family']}\nfont_size {s['font_size']}.0\n")
+    write_atomic(gen / "appearance.conf", appearance_conf(s))
+    write_atomic(gen / "behavior.conf", behavior_conf(s))
+    if not (gen / "shortcuts.conf").exists():
+        write_atomic(gen / "shortcuts.conf", HEADER)
 
 
 def reload_kitty() -> None:

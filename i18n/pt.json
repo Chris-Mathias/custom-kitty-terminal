@@ -58,5 +58,6 @@
   "menu.font_size": "Tamanho da fonte",
   "menu.help_top": "↑↓ navega   enter abre   q sai",
   "menu.help_sub": "↑↓ navega   enter escolhe   esc volta",
-  "menu.applied": "Aplicado. Sessões do Claude já abertas podem precisar ser reiniciadas."
+  "menu.applied": "Aplicado. Sessões do Claude já abertas podem precisar ser reiniciadas.",
+  "dialog.nothing_running": "Nada está rodando."
 }

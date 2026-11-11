@@ -36,14 +36,19 @@ wrapper(tm, gear_x, 5.0, LEFT, 0, RELEASE)
 out['drawn'] = [len(opened), len(calls)]
 wrapper(tm, 5.0, 5.0, LEFT, 0, RELEASE, 'extra', new_kw=1)
 out['new_signature'] = calls[-1]
+out['draw'] = m['TAB_DRAW'].__name__
 print(json.dumps(out))
 """
 
 
 @unittest.skipUnless(shutil.which("kitty"), "kitty not installed")
 class TabBarHookTest(unittest.TestCase):
-    def run_hook(self):
+    def run_hook(self, settings=None):
         with tempfile.TemporaryDirectory() as home:
+            if settings is not None:
+                cfg = Path(home, ".config/custom-kitty-terminal")
+                cfg.mkdir(parents=True)
+                (cfg / "settings.json").write_text(json.dumps(settings))
             menu = Path(home, ".local/bin/ct-config")
             menu.parent.mkdir(parents=True)
             menu.write_text("#!/bin/sh\n")
@@ -65,6 +70,10 @@ class TabBarHookTest(unittest.TestCase):
         args, kwargs = self.run_hook()["new_signature"]
         self.assertEqual(args[-1], "extra")
         self.assertEqual(kwargs, ["new_kw"])
+
+    def test_tab_style_picks_the_drawing(self):
+        self.assertEqual(self.run_hook()["draw"], "draw_tab_with_powerline")
+        self.assertEqual(self.run_hook({"tab_style": "separators"})["draw"], "draw_tab_with_separator")
 
 
 if __name__ == "__main__":
