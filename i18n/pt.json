@@ -163,5 +163,6 @@
   "value.confirm_close.never": "Nunca",
   "value.length.short": "Curto",
   "value.length.balanced": "Equilibrado",
-  "value.length.detailed": "Detalhado"
+  "value.length.detailed": "Detalhado",
+  "menu.shortcut.need_modifier": "Use pelo menos um de Ctrl, Alt, Shift ou Super."
 }

@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-"""ct-config: settings menu for custom-kitty-terminal (language, theme, font, font size).
+"""ct-config: settings menu for custom-kitty-terminal.
 
 Opened by `ct config`, by ctrl+shift+f2 and by the ⚙ button in kitty's tab bar.
 Every change is saved to ~/.config/custom-kitty-terminal/settings.json and applied
-right away (kitty reloads; Claude Code gets the new theme, style and verbs).
+right away (kitty reloads; Claude Code gets the theme, phrases and, if enabled,
+the response style).
 """
 import curses
 import os
+import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 
 import ckt  # noqa: E402
+import shortcuts as sc  # noqa: E402
 from menu import Menu  # noqa: E402
 
 KEYS = {
@@ -21,6 +25,7 @@ KEYS = {
     27: "back", curses.KEY_LEFT: "back", ord("h"): "back", curses.KEY_BACKSPACE: "back", 127: "back",
     ord("q"): "quit", ord("Q"): "quit",
 }
+FINAL = set(b"~uABCDHFPQRS")
 
 
 def set_title(title: str) -> None:
@@ -43,58 +48,107 @@ def draw(win, m: Menu, colors):
     win.erase()
     h, w = win.getmaxyx()
     v = m.view()
-    top = m.view() if v["level"] == "top" else None
     t = lambda key: ckt.t(key, m.settings["language"])  # noqa: E731
 
-    title = t("menu.title") + ("" if v["level"] == "top" else f" › {v['title']}")
-    put(win, 1, 2, title, accent | curses.A_BOLD)
-    hint = t("menu.help_top" if v["level"] == "top" else "menu.help_sub")
-    put(win, 1, max(len(title) + 6, w - len(hint) - 3), hint, dim)
+    crumbs = " › ".join(ckt.t(node.label_key, m.settings["language"]) for node, _ in m.stack)
+    put(win, 1, 2, crumbs, accent | curses.A_BOLD)
+    hint = t({"order": "menu.help_order", "list": "menu.help_top"}.get(v["level"], "menu.help_sub"))
+    put(win, 2, 2, hint, dim)
 
-    items = m.items()
-    label_w = max(len(label) for label, _ in items) + 4
-    selected = v["cursor"] if v["level"] == "top" else m.item
-    for i, (label, value) in enumerate(items):
-        y = 3 + i
-        if i == selected:
-            put(win, y, 2, " " * (label_w + len(value) + 6), curses.A_REVERSE)
-            put(win, y, 3, label.ljust(label_w) + value + "  ›", curses.A_REVERSE | (curses.A_BOLD if top is None else 0))
-        else:
-            put(win, y, 3, label.ljust(label_w), 0)
-            put(win, y, 3 + label_w, value, dim)
-
-    if v["level"] == "sub":
-        rows = v["rows"]
-        box_top = 4 + len(items)
-        room = max(3, h - box_top - 3)
-        start = min(max(0, v["cursor"] - room // 2), max(0, len(rows) - room))
-        shown = rows[start:start + room]
-        width = min(w - 6, max(len(v["title"]) + 6, max(len(r) for r in rows) + 4))
-        put(win, box_top, 2, "┌ " + v["title"] + " " + "─" * max(0, width - len(v["title"]) - 3) + "┐", accent)
-        for n, row in enumerate(shown):
-            y = box_top + 1 + n
-            put(win, y, 2, "│", accent)
-            attr = curses.A_REVERSE if start + n == v["cursor"] else 0
-            put(win, y, 3, (" " + row).ljust(width - 1)[: width - 1], attr)
-            if row.startswith("●") and start + n != v["cursor"]:
-                put(win, y, 4, "●", mark)
-            put(win, y, 2 + width, "│", accent)
-        put(win, box_top + 1 + len(shown), 2, "└" + "─" * (width - 1) + "┘", accent)
-        if start > 0:
-            put(win, box_top, 2 + width - 2, "↑", dim)
-        if start + room < len(rows):
-            put(win, box_top + 1 + len(shown), 2 + width - 2, "↓", dim)
+    rows, values, cursor = v["rows"], v["values"], v["cursor"]
+    room = max(3, h - 7)
+    start = min(max(0, cursor - room // 2), max(0, len(rows) - room))
+    label_w = max([len(r) for r in rows] + [0]) + 4
+    for n, row in enumerate(rows[start:start + room]):
+        i = start + n
+        y = 4 + n
+        selected = i == cursor
+        attr = curses.A_REVERSE if selected else 0
+        if v["level"] == "order" and selected and v["moving"]:
+            attr = curses.A_REVERSE | curses.A_BOLD
+            row = f"⇅ {row}"
+        text = row.ljust(label_w) + (values[i] if values[i] else "")
+        if v["level"] == "list" and m.stack[-1][0].children[i].kind in ("group", "shortcut"):
+            text += "  ›"
+        put(win, y, 3, (" " + text + " ") if selected else " " + text, attr)
+        if not selected and values[i]:
+            put(win, y, 4 + label_w, values[i], dim)
+        if not selected and row.startswith("●"):
+            put(win, y, 4, "●", mark)
+    if start > 0:
+        put(win, 3, 3, "↑", dim)
+    if start + room < len(rows):
+        put(win, 4 + room, 3, "↓", dim)
 
     if m.message:
-        put(win, h - 2, 2, m.message, dim)
+        put(win, h - 2, 2, m.message, accent if v["confirm"] or v["capturing"] else dim)
     win.refresh()
+
+
+# ---------- recording a shortcut ----------
+def _kitten(*args) -> bool:
+    if not os.environ.get("KITTY_LISTEN_ON"):
+        return False
+    try:
+        return subprocess.run(["kitten", "@", *args], capture_output=True, timeout=5).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def read_combo(win) -> str | None:
+    """Reads one key combination; None when Esc is pressed alone."""
+    win.keypad(False)
+    win.nodelay(False)
+    try:
+        first = win.getch()
+        if first != 27:
+            return sc.normalize(chr(first)) if 32 < first < 127 else None
+        seq = bytes([27])
+        win.nodelay(True)
+        deadline = time.time() + 0.3
+        while time.time() < deadline:
+            ch = win.getch()
+            if ch == -1:
+                time.sleep(0.01)
+                continue
+            seq += bytes([ch])
+            deadline = time.time() + 0.3
+            if len(seq) > 2 and ch in FINAL:
+                break
+        if seq == b"\x1b":
+            return None
+        return sc.from_csi_u(seq)
+    finally:
+        win.nodelay(False)
+        win.keypad(True)
+
+
+def capture(win, m: Menu, colors) -> str | None:
+    """Suspends kitty's own shortcuts and asks for the keys (kitty keyboard protocol)."""
+    suspended = _kitten("action", "push_keyboard_mode", sc.CAPTURE_MODE)
+    sys.stdout.write("\x1b[>1u")  # report modifier combinations as escape codes
+    sys.stdout.flush()
+    try:
+        draw(win, m, colors)
+        while True:
+            combo = read_combo(win)
+            if combo is None or "+" in combo:
+                return combo
+            # A key on its own isn't a shortcut: ask again.
+            m.message = ckt.t("menu.shortcut.need_modifier", m.settings["language"])
+            draw(win, m, colors)
+    finally:
+        sys.stdout.write("\x1b[<u")
+        sys.stdout.flush()
+        if suspended:
+            _kitten("action", "pop_keyboard_mode")
 
 
 def run(win):
     curses.curs_set(0)
     curses.use_default_colors()
     curses.set_escdelay(25)
-    # ANSI colors follow the kitty theme: blue is the theme's accent-ish color 4.
+    # ANSI colors follow the kitty theme.
     curses.init_pair(1, curses.COLOR_BLUE, -1)
     curses.init_pair(2, curses.COLOR_GREEN, -1)
     colors = (curses.color_pair(1), curses.A_DIM, curses.color_pair(2))
@@ -104,12 +158,15 @@ def run(win):
         set_title(ckt.t("menu.title", m.settings["language"]))
         draw(win, m, colors)
         action = m.key(KEYS.get(win.getch(), ""))
+        if action == "capture":
+            action = m.captured(capture(win, m, colors))
         if action == "quit":
             return
         if action == "apply":
+            note = m.message
             ckt.save_settings(m.settings)
             problems = ckt.apply(m.settings)
-            m.message = " ".join(problems) or ckt.t("menu.applied", m.settings["language"])
+            m.message = " ".join(problems) or note or ckt.t("menu.applied", m.settings["language"])
 
 
 if __name__ == "__main__":
