@@ -13,7 +13,7 @@ R=$'\e[0m'; DIM=$'\e[2m'; B=$'\e[1m'
 BLUE=$(ckt_color accent); MAG=$(ckt_color magenta); CYAN=$(ckt_color cyan)
 ORANGE=$(ckt_color orange); GREEN=$(ckt_color green); YELLOW=$(ckt_color yellow); RED=$(ckt_color red)
 WEEK=$(ckt_t status.week)
-if [[ $(ckt_lang) == pt ]]; then TIME_LOCALE=pt_BR.UTF-8; else TIME_LOCALE=en_US.UTF-8; fi
+case $(ckt_lang) in pt) TIME_LOCALE=pt_BR.UTF-8 ;; zh) TIME_LOCALE=zh_CN.UTF-8 ;; *) TIME_LOCALE=en_US.UTF-8 ;; esac
 
 IFS=$'\t' read -r cwd proj model effort wt ctx h5 h5r d7 d7r < <(
   jq -r '[
