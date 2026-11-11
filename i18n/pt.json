@@ -153,7 +153,6 @@
   "value.cursor_shape.block": "Bloco",
   "value.cursor_shape.beam": "Barra",
   "value.cursor_shape.underline": "Sublinhado",
-  "value.title_bar.gnome": "GNOME",
   "value.title_bar.kitty": "A do kitty",
   "value.title_bar.none": "Nenhuma",
   "value.spinner.ours": "As nossas, no seu idioma",
@@ -171,5 +170,6 @@
   "panel.no_agents": "nenhum rodando",
   "panel.main_conversation": "conversa principal",
   "panel.agent_command_description": "Mostra a conversa de um subagente: /agent 2, next, prev ou main",
-  "panel.no_such_agent": "Nenhum subagente com esse número."
+  "panel.no_such_agent": "Nenhum subagente com esse número.",
+  "value.title_bar.system": "A do sistema"
 }

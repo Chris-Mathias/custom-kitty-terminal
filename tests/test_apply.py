@@ -32,6 +32,12 @@ class ApplyTest(unittest.TestCase):
         return dict(ckt.DEFAULTS, **kw)
 
     def test_generates_kitty_includes(self):
+        stub = self.home / "bin/fc-list"
+        stub.parent.mkdir()
+        stub.write_text("#!/bin/sh\necho 'JetBrains Mono'\n")
+        stub.chmod(0o755)
+        os.environ["PATH"] = f"{stub.parent}:{os.environ['PATH']}"
+        self.addCleanup(os.environ.__setitem__, "PATH", os.environ["PATH"].split(":", 1)[1])
         ckt.apply(self.settings(theme="dracula", font_family="JetBrains Mono", font_size=14), reload=False)
         gen = self.home / ".config/kitty/generated"
         font = (gen / "font.conf").read_text()

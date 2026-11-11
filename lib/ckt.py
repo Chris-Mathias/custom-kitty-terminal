@@ -31,7 +31,7 @@ CHOICES = {
     "opacity": tuple(range(70, 101, 5)),
     "cursor_shape": ("block", "beam", "underline"),
     "cursor_blink": (True, False),
-    "title_bar": ("gnome", "kitty", "none"),
+    "title_bar": ("system", "kitty", "none"),
     "ligatures": (True, False),
     "spinner": ("ours", "claude"),
     "subagent_rows": (True, False),
@@ -46,7 +46,7 @@ RESPONSE_LENGTHS = ("short", "balanced", "detailed")
 DEFAULTS = {
     "language": "en", "theme": "fedora", "font_family": "Adwaita Mono", "font_size": 12,
     "line_height": 115, "padding": "normal", "tab_style": "slanted", "tab_position": "top",
-    "opacity": 100, "cursor_shape": "block", "cursor_blink": True, "title_bar": "gnome", "ligatures": True,
+    "opacity": 100, "cursor_shape": "block", "cursor_blink": True, "title_bar": "system", "ligatures": True,
     "response_style": {"enabled": False, "language": "pt", "length": "short", "previous": None},
     "spinner": "ours",
     "subagent_rows": True,
@@ -72,6 +72,8 @@ def _same_type(value, default) -> bool:
 
 def _scalar(key: str, value):
     default = DEFAULTS[key]
+    if key == "title_bar" and value == "gnome":
+        value = "system"  # older settings files
     if key == "font_family":
         return value if isinstance(value, str) and value.strip() else default
     if _same_type(value, default) and value in CHOICES[key]:
@@ -271,16 +273,32 @@ def kitty_dir() -> Path:
 
 
 PADDING = {"compact": "2 4", "normal": "4 8", "roomy": "8 16"}
-TITLE_BAR = {
-    # GNOME draws the title bar (Fedora's standard buttons) when kitty runs through XWayland.
-    "gnome": ("linux_display_server x11", "hide_window_decorations no"),
-    "kitty": ("linux_display_server auto", "hide_window_decorations no"),
-    "none": ("linux_display_server auto", "hide_window_decorations yes"),
-}
+def _title_bar(choice: str, desktop: str) -> tuple[str, str]:
+    if choice == "none":
+        return ("linux_display_server auto", "hide_window_decorations yes")
+    if choice == "system" and "GNOME" in desktop.upper():
+        # GNOME only draws its own title bar (standard buttons) for X11 windows: run through XWayland.
+        return ("linux_display_server x11", "hide_window_decorations no")
+    # KDE, Cinnamon and the others draw it for Wayland windows too; "kitty" is kitty's own bar.
+    return ("linux_display_server auto", "hide_window_decorations no")
+
+
+def font_conf_family(family: str, installed: list[str] | None = None) -> str:
+    """The font kitty should ask for: the chosen one, or the system's monospace font when it isn't installed."""
+    if installed is None:
+        try:
+            out = subprocess.run(["fc-list", ":", "family"], capture_output=True, text=True, timeout=10).stdout
+        except (OSError, subprocess.SubprocessError):
+            out = ""
+        installed = [name.strip() for line in out.splitlines() for name in line.split(",") if name.strip()]
+    if not installed or family.lower() in {n.lower() for n in installed}:
+        return family
+    return "monospace"
 HEADER = "# Written by the settings menu (ct config); changes here are overwritten.\n"
 
 
-def appearance_conf(s: dict) -> str:
+def appearance_conf(s: dict, desktop: str | None = None) -> str:
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "") if desktop is None else desktop
     # "separators" is drawn by tab_bar.py; kitty only needs a valid powerline style.
     powerline = s["tab_style"] if s["tab_style"] != "separators" else "slanted"
     lines = [
@@ -291,7 +309,7 @@ def appearance_conf(s: dict) -> str:
         f"background_opacity {s['opacity'] / 100:g}" if s["opacity"] < 100 else "background_opacity 1.0",
         f"cursor_shape {s['cursor_shape']}",
         f"cursor_blink_interval {-1 if s['cursor_blink'] else 0}",
-        *TITLE_BAR[s["title_bar"]],
+        *_title_bar(s["title_bar"], desktop),
         f"disable_ligatures {'never' if s['ligatures'] else 'always'}",
     ]
     return HEADER + "\n".join(lines) + "\n"
@@ -319,7 +337,8 @@ def close_decision(confirm_close: str, running: list) -> str:
 def write_kitty_includes(s: dict) -> None:
     gen = kitty_dir() / "generated"
     write_atomic(gen / "theme.conf", (REPO / "themes" / s["theme"] / "kitty.conf").read_text())
-    write_atomic(gen / "font.conf", HEADER + f"font_family {s['font_family']}\nfont_size {s['font_size']}.0\n")
+    family = font_conf_family(s["font_family"])
+    write_atomic(gen / "font.conf", HEADER + f"font_family {family}\nfont_size {s['font_size']}.0\n")
     write_atomic(gen / "appearance.conf", appearance_conf(s))
     write_atomic(gen / "behavior.conf", behavior_conf(s))
     import shortcuts

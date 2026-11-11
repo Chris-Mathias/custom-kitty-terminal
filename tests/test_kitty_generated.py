@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,17 @@ def lines(text):
 
 
 class GeneratedKittyTest(unittest.TestCase):
+    def setUp(self):
+        # The "system" title bar depends on the desktop: these tests assume GNOME.
+        self.old_desktop = os.environ.get("XDG_CURRENT_DESKTOP")
+        os.environ["XDG_CURRENT_DESKTOP"] = "GNOME"
+
+    def tearDown(self):
+        if self.old_desktop is None:
+            os.environ.pop("XDG_CURRENT_DESKTOP", None)
+        else:
+            os.environ["XDG_CURRENT_DESKTOP"] = self.old_desktop
+
     def test_defaults_match_today(self):
         got = lines(ckt.appearance_conf(settings())) | lines(ckt.behavior_conf(settings()))
         for expected in ("modify_font cell_height 115%", "window_padding_width 4 8", "tab_powerline_style slanted",
@@ -41,12 +53,26 @@ class GeneratedKittyTest(unittest.TestCase):
             (dict(cursor_shape="beam"), "cursor_shape beam"),
             (dict(cursor_blink=False), "cursor_blink_interval 0"),
             (dict(title_bar="kitty"), "linux_display_server auto"),
+            (dict(title_bar="system"), "linux_display_server x11"),  # GNOME (the default desktop in these tests)
             (dict(title_bar="none"), "hide_window_decorations yes"),
             (dict(ligatures=False), "disable_ligatures always"),
         ]
         for kw, expected in cases:
             with self.subTest(**kw):
                 self.assertIn(expected, lines(ckt.appearance_conf(settings(**kw))))
+
+    def test_system_title_bar_outside_gnome(self):
+        conf = lines(ckt.appearance_conf(settings(title_bar="system"), desktop="KDE"))
+        self.assertIn("linux_display_server auto", conf)
+        self.assertIn("hide_window_decorations no", conf)
+
+    def test_old_gnome_value_means_system(self):
+        self.assertEqual(ckt._scalar("title_bar", "gnome"), "system")
+
+    def test_missing_font_falls_back_to_monospace(self):
+        self.assertEqual(ckt.font_conf_family("Adwaita Mono", installed=["DejaVu Sans Mono"]), "monospace")
+        self.assertEqual(ckt.font_conf_family("Adwaita Mono", installed=["Adwaita Mono"]), "Adwaita Mono")
+        self.assertEqual(ckt.font_conf_family("Adwaita Mono", installed=[]), "Adwaita Mono")  # can't tell: keep it
 
     def test_behavior_options(self):
         off = lines(ckt.behavior_conf(settings(reopen_tabs=False)))

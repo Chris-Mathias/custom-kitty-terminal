@@ -37,7 +37,7 @@ class SettingsModelTest(unittest.TestCase):
         self.assertEqual(d["opacity"], 100)
         self.assertEqual(d["cursor_shape"], "block")
         self.assertIs(d["cursor_blink"], True)
-        self.assertEqual(d["title_bar"], "gnome")
+        self.assertEqual(d["title_bar"], "system")
         self.assertIs(d["ligatures"], True)
         self.assertEqual(d["response_style"], {"enabled": False, "language": "pt", "length": "short", "previous": None})
         self.assertEqual(d["spinner"], "ours")
