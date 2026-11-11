@@ -31,6 +31,18 @@ IFS=$'\t' read -r cwd proj model effort wt ctx h5 h5r d7 d7r < <(
 )
 for v in cwd proj model effort wt ctx h5 h5r d7 d7r; do [[ ${!v} == "-" ]] && printf -v "$v" ''; done
 
+# Items turned off in the settings menu (Claude Code → Status line) are dropped.
+IFS=$'\t' read -r on_ctx on_h5 on_d7 on_resets on_model on_wt < <(
+  jq -r '(.status_line // {}) as $s | [$s.context, $s.five_hour, $s.weekly, $s.resets, $s.model, $s.worktree]
+    | map(if . == false then 0 else 1 end) | @tsv' "$CKT_SETTINGS" 2>/dev/null || printf '1\t1\t1\t1\t1\t1\n'
+)
+(( ${on_ctx:-1} )) || ctx=""
+(( ${on_h5:-1} )) || h5=""
+(( ${on_d7:-1} )) || d7=""
+(( ${on_resets:-1} )) || { h5r=""; d7r=""; }
+(( ${on_model:-1} )) || model=""
+(( ${on_wt:-1} )) || wt=""
+
 # Usable width: Claude Code passes COLUMNS; leave 4 spare columns (Claude Code's margin).
 width=$(( ${COLUMNS:-120} - 4 ))
 SEP=" ${DIM}·${R} "

@@ -47,6 +47,23 @@ class ShellI18nTest(unittest.TestCase):
         self.assertNotIn("some-branch", out)
         self.assertNotIn("⎇", out)
 
+    def test_statusline_hides_items(self):
+        full = json.dumps({"workspace": {"current_dir": "/tmp/proj", "project_dir": "/tmp/proj"},
+                           "model": {"display_name": "Opus"}, "worktree": {"name": "wt-x"},
+                           "context_window": {"used_percentage": 12},
+                           "rate_limits": {"five_hour": {"used_percentage": 3, "resets_at": 1794600000},
+                                           "seven_day": {"used_percentage": 15, "resets_at": 1794600000}}})
+        out = self.run_script("claude/statusline.sh", full)[1]
+        for part in ("Opus", "wt-x", "ctx ", "5h ", "wk ", "↻"):
+            self.assertIn(part, out)
+        (self.cfg / "settings.json").write_text(json.dumps({"status_line": {
+            "model": False, "worktree": False, "weekly": False, "resets": False}}))
+        out = self.run_script("claude/statusline.sh", full)[1]
+        for part in ("Opus", "wt-x", "wk ", "↻"):
+            self.assertNotIn(part, out)
+        for part in ("ctx ", "5h ", "proj"):
+            self.assertIn(part, out)
+
     def test_statusline_corrupt_settings(self):
         (self.cfg / "settings.json").write_text("{nope")
         code, out = self.run_script("claude/statusline.sh", self.STATUS)
