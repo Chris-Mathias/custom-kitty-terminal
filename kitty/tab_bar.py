@@ -13,10 +13,10 @@ from kitty.tab_bar import (DrawData, ExtraData, TabBarData, as_rgb, draw_tab_wit
                            draw_tab_with_separator)
 from kitty.utils import color_as_int
 
-# The plain ⚙ is spread over two cells (narrow_symbols in tabs.conf), so it is
+# The plain ⚙ is spread over three cells (narrow_symbols in tabs.conf), so it is
 # easier to see and click; the space after it gives it room.
-GEAR = " ⚙  "
-GEAR_CELLS = 4
+GEAR = " ⚙   "
+GEAR_CELLS = 5
 MENU = os.path.expanduser("~/.local/bin/ct-config")
 GEAR_ENABLED = False
 

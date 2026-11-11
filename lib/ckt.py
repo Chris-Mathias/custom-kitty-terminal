@@ -341,7 +341,11 @@ def write_kitty_includes(s: dict) -> None:
     gen = kitty_dir() / "generated"
     write_atomic(gen / "theme.conf", (REPO / "themes" / s["theme"] / "kitty.conf").read_text())
     family = font_conf_family(s["font_family"])
-    write_atomic(gen / "font.conf", HEADER + f"font_family {family}\nfont_size {s['font_size']}.0\n")
+    # Symbola (or DejaVu Sans) draws a larger ⚙ than the text font; mapping the gear to a
+    # font that isn't installed would leave the button blank, so only installed ones are used.
+    gear_font = next((f for f in ("Symbola", "DejaVu Sans") if font_conf_family(f) == f), None)
+    gear = f"symbol_map U+2699 {gear_font}\n" if gear_font else ""
+    write_atomic(gen / "font.conf", HEADER + f"font_family {family}\nfont_size {s['font_size']}.0\n" + gear)
     write_atomic(gen / "appearance.conf", appearance_conf(s))
     write_atomic(gen / "behavior.conf", behavior_conf(s))
     import shortcuts
