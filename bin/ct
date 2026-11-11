@@ -7,6 +7,14 @@
 #   ct . -- --continue     -> passes --continue to claude
 # Inside kitty it uses kitty tabs/windows; inside tmux, tmux windows;
 # outside both, it opens a kitty window.
+#   ct config              -> settings menu (language, theme, font, font size)
+
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/ckt.sh"
+
+case ${1:-} in
+  -h|--help) ckt_t cli.ct_help; echo; exit 0 ;;
+  config) shift; exec "$HOME/.local/bin/ct-config" "$@" ;;
+esac
 
 same_tab=0
 if [[ ${1:-} == "-a" || ${1:-} == "--here" ]]; then same_tab=1; shift; fi
@@ -40,5 +48,5 @@ if command -v kitty >/dev/null; then
   exit 0
 fi
 
-echo "ct: abra dentro do kitty ou do tmux" >&2
+ckt_t cli.open_in_kitty_or_tmux >&2; echo >&2
 exit 1

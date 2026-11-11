@@ -4,12 +4,13 @@
 # If that conversation is already open somewhere else (e.g. a second kitty was
 # opened), it doesn't open it again: it just leaves the shell in the folder, with a notice.
 id=$1
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/ckt.sh"
 
 for f in "$HOME"/.claude/sessions/*.json; do
   [[ -e $f ]] || continue
   pid=$(basename "$f" .json)
   if kill -0 "$pid" 2>/dev/null && grep -q "\"sessionId\":\"$id\"" "$f"; then
-    printf '\e[2mEssa conversa do Claude já está aberta em outra janela. Para abrir uma nova: claude-panel\e[0m\n'
+    printf '\e[2m%s\e[0m\n' "$(ckt_t cli.already_open)"
     exec "${SHELL:-/usr/bin/zsh}"
   fi
 done
