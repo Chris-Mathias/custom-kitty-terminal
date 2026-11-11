@@ -37,6 +37,16 @@ class ShellI18nTest(unittest.TestCase):
                 self.lang(lang)
                 self.assertIn(label, self.run_script("claude/statusline.sh", self.STATUS)[1])
 
+    def test_statusline_has_no_branch(self):
+        repo = Path(self.tmp.name, "proj")
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", "-b", "some-branch", str(repo)], check=True)
+        status = json.dumps({"workspace": {"current_dir": str(repo), "project_dir": str(repo)}})
+        out = self.run_script("claude/statusline.sh", status)[1]
+        self.assertIn("proj", out)
+        self.assertNotIn("some-branch", out)
+        self.assertNotIn("⎇", out)
+
     def test_statusline_corrupt_settings(self):
         (self.cfg / "settings.json").write_text("{nope")
         code, out = self.run_script("claude/statusline.sh", self.STATUS)

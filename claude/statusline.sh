@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Code status line on ONE line spanning the terminal width:
-#   left:  project · branch · worktree · model
+#   left:  project · worktree · model (the branch is in the side panel)
 #   right: context, 5h limit and weekly limit bars
 # If it doesn't fit, it shortens (smaller bars, no times) and, at worst, wraps into two lines.
 # Reads the session JSON on stdin (https://code.claude.com/docs/en/statusline).
@@ -40,20 +40,6 @@ name=$(basename "${proj:-$cwd}")
 left="${BLUE}${B}${name}${R}"
 if [[ -n $proj && -n $cwd && $cwd != "$proj" && $cwd == "$proj"/* ]]; then
   left+="${DIM}/${cwd#"$proj"/}${R}"
-fi
-
-if [[ -n $cwd ]] && git -C "$cwd" rev-parse --is-inside-work-tree &>/dev/null; then
-  g=(git --no-optional-locks -C "$cwd")
-  br=$("${g[@]}" branch --show-current 2>/dev/null)
-  [[ -z $br ]] && br="@$("${g[@]}" rev-parse --short HEAD 2>/dev/null)"
-  dirty=""; [[ -n $("${g[@]}" status --porcelain 2>/dev/null | head -1) ]] && dirty="*"
-  ab=""
-  if counts=$("${g[@]}" rev-list --left-right --count '@{upstream}...HEAD' 2>/dev/null); then
-    read -r behind ahead <<<"$counts"
-    (( ahead > 0 )) && ab+=" ⇡${ahead}"
-    (( behind > 0 )) && ab+=" ⇣${behind}"
-  fi
-  left+="${SEP}${MAG}⎇ ${br}${dirty}${ab}${R}"
 fi
 
 [[ -n $wt ]] && left+="${SEP}${CYAN}⊞ ${wt}${R}"
