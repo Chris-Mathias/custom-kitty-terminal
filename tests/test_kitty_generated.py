@@ -74,6 +74,12 @@ class GeneratedKittyTest(unittest.TestCase):
         self.assertEqual(ckt.font_conf_family("Adwaita Mono", installed=["Adwaita Mono"]), "Adwaita Mono")
         self.assertEqual(ckt.font_conf_family("Adwaita Mono", installed=[]), "Adwaita Mono")  # can't tell: keep it
 
+    def test_gear_font_only_when_installed(self):
+        self.assertEqual(ckt.gear_font(["Adwaita Mono", "Symbola", "DejaVu Sans"]), "Symbola")
+        self.assertEqual(ckt.gear_font(["dejavu sans"]), "DejaVu Sans")
+        self.assertIsNone(ckt.gear_font(["Adwaita Mono"]))
+        self.assertIsNone(ckt.gear_font([]))  # no fc-list: never map the gear to a font that may be missing
+
     def test_behavior_options(self):
         off = lines(ckt.behavior_conf(settings(reopen_tabs=False)))
         self.assertIn("startup_session none", off)

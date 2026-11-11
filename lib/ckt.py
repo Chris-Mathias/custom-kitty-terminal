@@ -294,17 +294,31 @@ def _title_bar(choice: str, desktop: str) -> tuple[str, str]:
     return ("linux_display_server auto", "hide_window_decorations no")
 
 
+def installed_fonts() -> list[str]:
+    """Every font family fontconfig knows (empty when fc-list is missing or says nothing)."""
+    try:
+        out = subprocess.run(["fc-list", ":", "family"], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        out = ""
+    return [name.strip() for line in out.splitlines() for name in line.split(",") if name.strip()]
+
+
 def font_conf_family(family: str, installed: list[str] | None = None) -> str:
     """The font kitty should ask for: the chosen one, or the system's monospace font when it isn't installed."""
     if installed is None:
-        try:
-            out = subprocess.run(["fc-list", ":", "family"], capture_output=True, text=True, timeout=10).stdout
-        except (OSError, subprocess.SubprocessError):
-            out = ""
-        installed = [name.strip() for line in out.splitlines() for name in line.split(",") if name.strip()]
+        installed = installed_fonts()
     if not installed or family.lower() in {n.lower() for n in installed}:
         return family
     return "monospace"
+
+
+def gear_font(installed: list[str]) -> str | None:
+    """The font for the ⚙ button: Symbola (or DejaVu Sans) draws a larger gear than the text font.
+
+    Only a font known to be installed: mapping the gear to a missing one leaves the button
+    blank, so with no font list at all (no fc-list) the text font draws it."""
+    names = {n.lower() for n in installed}
+    return next((f for f in ("Symbola", "DejaVu Sans") if f.lower() in names), None)
 HEADER = "# Written by the settings menu (ct config); changes here are overwritten.\n"
 
 
@@ -348,11 +362,10 @@ def close_decision(confirm_close: str, running: list) -> str:
 def write_kitty_includes(s: dict) -> None:
     gen = kitty_dir() / "generated"
     write_atomic(gen / "theme.conf", (REPO / "themes" / s["theme"] / "kitty.conf").read_text())
-    family = font_conf_family(s["font_family"])
-    # Symbola (or DejaVu Sans) draws a larger ⚙ than the text font; mapping the gear to a
-    # font that isn't installed would leave the button blank, so only installed ones are used.
-    gear_font = next((f for f in ("Symbola", "DejaVu Sans") if font_conf_family(f) == f), None)
-    gear = f"symbol_map U+2699 {gear_font}\n" if gear_font else ""
+    fonts = installed_fonts()  # one fc-list for the text font and the gear
+    family = font_conf_family(s["font_family"], fonts)
+    gear_family = gear_font(fonts)
+    gear = f"symbol_map U+2699 {gear_family}\n" if gear_family else ""
     write_atomic(gen / "font.conf", HEADER + f"font_family {family}\nfont_size {s['font_size']}.0\n" + gear)
     write_atomic(gen / "appearance.conf", appearance_conf(s))
     write_atomic(gen / "behavior.conf", behavior_conf(s))
