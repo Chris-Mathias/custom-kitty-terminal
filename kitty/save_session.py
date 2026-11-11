@@ -15,6 +15,8 @@ import shlex
 from kitty.fast_data_types import add_timer, get_boss, remove_timer
 
 SESSION_FILE = os.path.expanduser('~/.config/kitty/last-session.kitty-session')
+# Written by the older Portuguese version; a kitty started before the update may still write it.
+OLD_SESSION_FILE = os.path.expanduser('~/.config/kitty/ultima-sessao.kitty-session')
 CLAUDE_SESSIONS = os.path.expanduser('~/.claude/sessions')
 RESTORE = os.path.expanduser('~/.local/bin/claude-restore')
 SHELL = os.environ.get('SHELL', '/usr/bin/zsh')
@@ -80,6 +82,10 @@ def _save(timer_id=None):
     with open(tmp, 'w') as f:
         f.write(text)
     os.replace(tmp, SESSION_FILE)
+    try:
+        os.remove(OLD_SESSION_FILE)
+    except OSError:
+        pass
 
 
 def _schedule():
