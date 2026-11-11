@@ -50,23 +50,16 @@ def _label(window) -> str:
     return f'{prog} · {title}' if title and title != prog else prog
 
 
-@result_handler(no_ui=True)
-def handle_result(args: list[str], answer: str, target_window_id: int, boss: Boss) -> None:
-    # "kitten close_tab.py" closes the tab; "kitten close_tab.py window" closes only
-    # the front window (session), keeping the others stacked in the tab.
-    window_only = len(args) > 1 and args[1] == 'window'
-    tab = boss.active_tab
-    if tab is None:
-        return
-    if window_only:
-        w = boss.active_window
-        if w is None:
-            return
-        running = [_label(w)] if w.has_running_program else []
+def close_tab(boss: Boss, tab, window=None) -> None:
+    """Closes the tab (or only `window` in it) right away, or asks first, per the settings.
+
+    Used by Ctrl+W / Ctrl+Alt+W below and by the close mark in the tab bar (tab_bar.py)."""
+    if window is not None:
+        running = [_label(window)] if window.has_running_program else []
         if _decision(running) == 'close':
-            boss.mark_window_for_close(w)
+            boss.mark_window_for_close(window)
             return
-        target = f'window:{w.id}'
+        target = f'window:{window.id}'
     else:
         running = [_label(w) for w in tab if w.has_running_program]
         if _decision(running) == 'close':
@@ -74,6 +67,20 @@ def handle_result(args: list[str], answer: str, target_window_id: int, boss: Bos
             return
         target = f'tab:{tab.id}'
     from kitty.launch import launch, parse_launch_args
-    title = _t('dialog.title_session' if window_only else 'dialog.title_tab')
+    title = _t('dialog.title_session' if window is not None else 'dialog.title_tab')
     spec = parse_launch_args(['--type=overlay', f'--title={title}', DIALOG, target, *running])
     launch(boss, spec.opts, spec.args, target_tab=tab)
+
+
+@result_handler(no_ui=True)
+def handle_result(args: list[str], answer: str, target_window_id: int, boss: Boss) -> None:
+    # "kitten close_tab.py" closes the tab; "kitten close_tab.py window" closes only
+    # the front window (session), keeping the others stacked in the tab.
+    tab = boss.active_tab
+    if tab is None:
+        return
+    if len(args) > 1 and args[1] == 'window':
+        if boss.active_window is not None:
+            close_tab(boss, tab, boss.active_window)
+        return
+    close_tab(boss, tab)

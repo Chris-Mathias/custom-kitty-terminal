@@ -37,6 +37,16 @@ out['drawn'] = [len(opened), len(calls)]
 wrapper(tm, 5.0, 5.0, LEFT, 0, RELEASE, 'extra', new_kw=1)
 out['new_signature'] = calls[-1]
 out['draw'] = m['TAB_DRAW'].__name__
+out['close_enabled'] = m['CLOSE_ENABLED']
+out['close_cell'] = [m['_close_cell'](' 1 zsh × ', 0, 9), m['_close_cell'](' 1 zs… ', 0, 8)]
+closed = []
+wrapper.__globals__['_close_tab'] = lambda tm, tab_id: closed.append(tab_id)
+wrapper.__globals__['_set_close_cells'](tm.tab_bar.screen, {7: 42})
+calls.clear()
+wrapper(tm, 75.0, 5.0, LEFT, 0, RELEASE)   # cell 7: the x of tab 42
+wrapper(tm, 35.0, 5.0, LEFT, 0, RELEASE)   # cell 3: the title
+out['closed'] = closed
+out['passed_on'] = len(calls)
 print(json.dumps(out))
 """
 
@@ -74,6 +84,18 @@ class TabBarHookTest(unittest.TestCase):
     def test_tab_style_picks_the_drawing(self):
         self.assertEqual(self.run_hook()["draw"], "draw_tab_with_powerline")
         self.assertEqual(self.run_hook({"tab_style": "separators"})["draw"], "draw_tab_with_separator")
+
+    def test_close_button_off_by_default(self):
+        self.assertFalse(self.run_hook()["close_enabled"])
+        self.assertTrue(self.run_hook({"tab_close_buttons": True})["close_enabled"])
+
+    def test_finds_the_drawn_close_mark(self):
+        self.assertEqual(self.run_hook()["close_cell"], [7, None])
+
+    def test_click_on_the_mark_closes_that_tab(self):
+        out = self.run_hook({"tab_close_buttons": True})
+        self.assertEqual(out["closed"], [42])
+        self.assertEqual(out["passed_on"], 1)  # the click on the title still reaches kitty
 
 
 if __name__ == "__main__":

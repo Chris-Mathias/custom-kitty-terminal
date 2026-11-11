@@ -54,6 +54,49 @@ def _gear_click(self, args) -> bool:
     return True
 
 
+# The close mark at the end of each tab title (settings: "Close button on tabs").
+CLOSE_MARK = "×"
+# Cell of each drawn close mark -> its tab, per tab bar.
+_close_cells: dict[int, dict[int, int]] = {}
+
+
+def _set_close_cells(screen, cells: dict[int, int]) -> None:
+    _close_cells[id(screen)] = cells
+
+
+def _close_cell(text: str, start: int, end: int) -> int | None:
+    """Where the close mark sits in a drawn tab (None when the title was cut before it)."""
+    at = text.rfind(CLOSE_MARK, start, end)
+    return at if at >= 0 else None
+
+
+def _close_tab(tab_manager, tab_id: int) -> None:
+    import runpy
+    from kitty.constants import config_dir
+    from kitty.fast_data_types import get_boss
+    boss = get_boss()
+    tab = boss.tab_for_id(tab_id)
+    if tab is not None:
+        # The same path as Ctrl+W: asks first when something is running.
+        runpy.run_path(os.path.join(config_dir, "close_tab.py"))["close_tab"](boss, tab)
+
+
+def _close_click(self, args) -> bool:
+    """True when this mouse event is on a drawn close mark (and closes that tab on release)."""
+    from kitty.fast_data_types import GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE
+    x, _y, button, _modifiers, action = args[:5]
+    bar = self.tab_bar
+    cells = _close_cells.get(id(bar.screen))
+    if button == -1 or not cells:
+        return False
+    tab_id = cells.get((int(x) - bar.window_geometry.left) // bar.cell_width)
+    if tab_id is None:
+        return False
+    if button == GLFW_MOUSE_BUTTON_LEFT and action == GLFW_RELEASE:
+        _close_tab(self, tab_id)
+    return True
+
+
 def _install_click_hook() -> bool:
     try:
         from kitty.tabs import TabManager
@@ -61,7 +104,7 @@ def _install_click_hook() -> bool:
 
         def handle_tab_bar_mouse(self, *args, **kwargs):
             try:
-                if not kwargs and _gear_click(self, args):
+                if not kwargs and (_gear_click(self, args) or _close_click(self, args)):
                     return None
             except Exception:
                 pass
@@ -77,22 +120,26 @@ def _install_click_hook() -> bool:
 GEAR_ENABLED = os.path.exists(MENU) and _install_click_hook()
 
 
-def _tab_style() -> str:
-    """The tab style from the settings menu (read again on every config reload)."""
+def _settings() -> dict:
+    """The settings from the menu (read again on every config reload)."""
     try:
         import sys
         lib = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib")
         if lib not in sys.path:
             sys.path.insert(0, lib)
         import ckt
-        return ckt.load_settings()["tab_style"]
+        return ckt.load_settings()
     except Exception:
-        return "slanted"
+        return {}
+
+
+_SETTINGS = _settings()
+CLOSE_ENABLED = bool(_SETTINGS.get("tab_close_buttons"))
 
 
 # slanted, round and angled are kitty's powerline styles (tab_powerline_style);
 # separators uses kitty's separator drawing.
-TAB_DRAW = draw_tab_with_separator if _tab_style() == "separators" else draw_tab_with_powerline
+TAB_DRAW = draw_tab_with_separator if _SETTINGS.get("tab_style") == "separators" else draw_tab_with_powerline
 
 
 def draw_tab(
@@ -103,7 +150,15 @@ def draw_tab(
     if index == 1 and not extra_data.for_layout:
         # New pass: if the tabs overflow, kitty stops before the last one.
         _set_gear_drawn(screen, False)
+        _set_close_cells(screen, {})
+    closable = CLOSE_ENABLED and tab.tab_id > 0  # not the "+" button
+    if closable:
+        tab = tab._replace(title=f"{tab.title} {CLOSE_MARK}")
     end = TAB_DRAW(draw_data, screen, tab, before, max_tab_length, index, is_last, extra_data)
+    if closable and not extra_data.for_layout:
+        cell = _close_cell(str(screen.line(screen.cursor.y)), before, end + 1)
+        if cell is not None:
+            _close_cells.setdefault(id(screen), {})[cell] = tab.tab_id
     if GEAR_ENABLED and is_last and not extra_data.for_layout:
         start = gear_start(screen.columns)
         drawn = screen.cursor.x < start
