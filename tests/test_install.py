@@ -74,7 +74,6 @@ class InstallTest(unittest.TestCase):
             (".local/bin/claude-restore", "bin/claude-restore"),
             (".claude/statusline.sh", "claude/statusline.sh"),
             (".claude/themes/dracula.json", "themes/dracula/claude.json"),
-            (".claude/output-styles/concise-english.md", "claude/output-styles/concise-english.md"),
             (".local/share/claude-mods/session-panel", "claude/session-panel"),
         ]:
             with self.subTest(rel=rel):
@@ -85,7 +84,8 @@ class InstallTest(unittest.TestCase):
         self.assertIn("claude-mods/session-panel", zshrc)
         self.assertTrue(self.p(".config/kitty/generated/theme.conf").exists())
         claude = json.loads(self.p(".claude/settings.json").read_text())
-        self.assertEqual(claude["outputStyle"], "Concise English")
+        self.assertNotIn("outputStyle", claude)
+        self.assertFalse(self.p(".claude/output-styles").exists())
         self.assertTrue(self.p(".config/kitty/last-session.kitty-session").exists())
 
     def test_migrates_old_layout(self):
@@ -104,6 +104,9 @@ class InstallTest(unittest.TestCase):
         (mods / "painel-sessao").symlink_to(REPO / "claude/painel-sessao")
         self.p(".claude/themes").mkdir(parents=True)
         self.p(".claude/themes/fedora.json").symlink_to(REPO / "claude/themes/fedora.json")  # old location
+        self.p(".claude/output-styles").mkdir()
+        self.p(".claude/output-styles/portugues-conciso.md").symlink_to(REPO / "claude/output-styles/portugues-conciso.md")
+        self.p(".claude/output-styles/mine.md").write_text("my own style\n")
         self.p(".claude/settings.json").write_text(json.dumps({"model": "opus", "outputStyle": "Português conciso"}))
         self.p(".zshrc").write_text(OLD_ZSHRC)
 
@@ -129,8 +132,16 @@ class InstallTest(unittest.TestCase):
         self.assertIn("alias ll='ls -l'", zshrc)
         claude = json.loads(self.p(".claude/settings.json").read_text())
         self.assertEqual(claude["model"], "opus")
-        self.assertEqual(claude["outputStyle"], "Português conciso")
+        self.assertNotIn("outputStyle", claude)  # ours: removed
+        self.assertFalse(os.path.lexists(self.p(".claude/output-styles/portugues-conciso.md")))
+        self.assertEqual(self.p(".claude/output-styles/mine.md").read_text(), "my own style\n")
         self.assertEqual(len(list(self.p(".claude").glob("settings.json.bak-*"))), 1)
+
+    def test_users_own_output_style_kept(self):
+        self.p(".claude").mkdir()
+        self.p(".claude/settings.json").write_text(json.dumps({"outputStyle": "Explanatory"}))
+        self.install()
+        self.assertEqual(json.loads(self.p(".claude/settings.json").read_text())["outputStyle"], "Explanatory")
 
     def test_fresh_install_has_no_upgrade_note(self):
         self.assertNotIn("Ctrl+N", self.install())

@@ -9,7 +9,7 @@ A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claud
 - **Reopens as you left it**: when kitty starts, last time's tabs come back and each Claude resumes the same conversation.
 - **Several Claude sessions in the same tab**, stacked, switched from the side panel.
 - **Close with confirmation** only when something is running, in its own dialog.
-- **Claude Code**: one-line status line (project, branch, worktree, model, context and 5h/weekly limits), subagent lines with each one's branch/worktree, themed colors, spinner verbs and a concise output style in your language.
+- **Claude Code**: one-line status line (project, worktree, model, context and 5h/weekly limits), subagent lines with each one's branch/worktree, themed colors and spinner verbs in your language. Claude's response style is left as you set it.
 - **Side panel** (`session-panel` mod): open sessions, git (with worktrees), tasks and files touched.
 
 ## Install
@@ -29,7 +29,7 @@ cd custom-kitty-terminal
 ./install.sh
 ```
 
-`install.sh` links each file of this repository into place (symbolic links), keeps whatever was there with a `.bak-<date>` suffix, merges only the keys this project owns into `~/.claude/settings.json` and adds a small `claude()` function to `~/.zshrc` so that `claude` opens with the side panel. It starts in English; switch to Portuguese with `ct config`. To update later: `git pull`.
+`install.sh` links each file of this repository into place (symbolic links), keeps whatever was there with a `.bak-<date>` suffix, merges only the keys this project owns into `~/.claude/settings.json` (theme, spinner verbs, status lines; never your response style) and adds a small `claude()` function to `~/.zshrc` so that `claude` opens with the side panel. It starts in English; switch to Portuguese with `ct config`. To update later: `git pull`.
 
 Close and reopen kitty. The first time it opens an empty tab; from then on it saves and reopens the tabs by itself.
 
@@ -37,7 +37,7 @@ Upgrading from the older Portuguese version of this repo: just run `./install.sh
 
 ## Settings
 
-`ct config` (or `Ctrl+Shift+F2`, or the ⚙ in the tab bar) opens the menu. Pick a row with `↑`/`↓` and `Enter`, then a value; `Esc` goes back and `q` closes. Every change is applied right away: kitty reloads, and Claude Code gets the new theme, output style and spinner verbs (sessions that are already open may need a restart).
+`ct config` (or `Ctrl+Shift+F2`, or the ⚙ in the tab bar) opens the menu. Pick a row with `↑`/`↓` and `Enter`, then a value; `Esc` goes back and `q` closes. Every change is applied right away: kitty reloads, and Claude Code gets the new theme and spinner verbs (sessions that are already open may need a restart).
 
 Your choices are saved in `~/.config/custom-kitty-terminal/settings.json`, outside the repository.
 
@@ -77,7 +77,7 @@ bin/        ct, ct-config (settings menu), ckt-apply, claude-panel, claude-resto
 lib/        ckt.py / ckt.sh (settings, translations, themes), menu.py
 i18n/       en.json, pt.json: every text shown to you
 themes/     <theme>/kitty.conf, claude.json, palette.json
-claude/     statusline.sh, subagent-statusline.sh, output-styles/,
+claude/     statusline.sh, subagent-statusline.sh,
             session-panel/ (the side panel mod)
 tests/      python3 -m unittest discover -s tests; claude plugin test claude/session-panel
 ```

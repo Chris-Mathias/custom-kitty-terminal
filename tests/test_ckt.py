@@ -70,10 +70,6 @@ class I18nTest(unittest.TestCase):
         key = next(iter(en))
         self.assertEqual(ckt.t(key, "xx"), en[key])
 
-    def test_output_style_names(self):
-        self.assertEqual(ckt.t("output_style", "en"), "Concise English")
-        self.assertEqual(ckt.t("output_style", "pt"), "Português conciso")
-
     def test_spinner_verbs_are_lists(self):
         for lang in ckt.LANGUAGES:
             verbs = ckt.t("spinner.verbs", lang)
@@ -84,12 +80,6 @@ class I18nTest(unittest.TestCase):
         en = json.loads((REPO / "i18n/en.json").read_text())
         pt = json.loads((REPO / "i18n/pt.json").read_text())
         self.assertEqual(set(en), set(pt))
-
-    def test_output_style_files_exist(self):
-        for lang in ckt.LANGUAGES:
-            name = ckt.t("output_style", lang)
-            files = list((REPO / "claude/output-styles").glob("*.md"))
-            self.assertTrue(any(f"name: {name}\n" in f.read_text() for f in files), name)
 
 
 class ThemeTest(unittest.TestCase):
@@ -151,7 +141,7 @@ class ShellTest(ConfigDirTest):
     def test_shell_lookup_matches_python(self):
         for lang in ckt.LANGUAGES:
             self.write_settings(json.dumps({"language": lang}))
-            self.assertEqual(self.sh("ckt_t output_style"), ckt.t("output_style", lang))
+            self.assertEqual(self.sh("ckt_t status.week"), ckt.t("status.week", lang))
 
     def test_shell_corrupt_settings(self):
         self.write_settings("{nope")
@@ -179,6 +169,14 @@ class PanelStringsTest(unittest.TestCase):
     def test_panel_uses_theme_colors_only(self):
         src = (REPO / "claude/session-panel/hooks/register.tsx").read_text()
         self.assertEqual(re.findall(r"#[0-9a-fA-F]{6}", src), [])
+
+
+
+class NoOutputStyleTest(unittest.TestCase):
+    def test_project_ships_no_output_style(self):
+        self.assertFalse((REPO / "claude/output-styles").exists())
+        for lang in ckt.LANGUAGES:
+            self.assertEqual(ckt.t("output_style", lang), "output_style")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,8 @@
 # .bak-<date> suffix. Your choices (language, theme, font) live in
 # ~/.config/custom-kitty-terminal/settings.json and are changed with `ct config`.
 # Claude Code's settings.json isn't replaced: only the keys this project owns
-# are merged into it.
+# (theme, spinner verbs, status lines) are merged into it. Claude's response
+# style is left alone.
 #
 # Also migrates an install made by the older Portuguese version of this repo.
 #
@@ -61,6 +62,8 @@ echo; echo "== Old Portuguese layout"
 for f in abas.conf fechar_aba.py fechar-aba-dialogo.sh salvar_sessao.py; do unlink_old "$HOME/.config/kitty/$f"; done
 for f in claude-painel claude-restaurar; do unlink_old "$HOME/.local/bin/$f"; done
 unlink_old "$HOME/.local/share/claude-mods/painel-sessao"
+# Response styles this project used to install (it no longer touches Claude's response style).
+for f in portugues-conciso.md concise-english.md; do unlink_old "$HOME/.claude/output-styles/$f"; done
 
 echo; echo "== kitty (~/.config/kitty)"
 for f in kitty.conf tabs.conf tab_bar.py close_tab.py close-tab-dialog.sh save_session.py; do
@@ -90,9 +93,6 @@ for t in "$REPO"/themes/*/; do
   id=$(basename "$t")
   link "$REPO/themes/$id/claude.json" "$HOME/.claude/themes/$id.json"
 done
-for s in "$REPO"/claude/output-styles/*.md; do
-  link "$s" "$HOME/.claude/output-styles/$(basename "$s")"
-done
 link "$REPO/claude/session-panel" "$HOME/.local/share/claude-mods/session-panel"
 
 echo; echo "== Your settings"
@@ -111,6 +111,11 @@ fi
 
 before=""
 [[ -f $claude_settings ]] && before=$(cat "$claude_settings")
+# Drop a response style this project set before; one you picked yourself stays.
+if [[ -f $claude_settings ]] && jq -e '.outputStyle == "Português conciso" or .outputStyle == "Concise English"' "$claude_settings" >/dev/null 2>&1; then
+  jq 'del(.outputStyle)' "$claude_settings" > "$claude_settings.tmp" && cat "$claude_settings.tmp" > "$claude_settings" && rm "$claude_settings.tmp"
+  ok "removed the response style this project had set in $claude_settings"
+fi
 "$REPO/bin/ckt-apply" || warn "couldn't apply everything (see above)"
 if [[ -n $before && $(cat "$claude_settings") != "$before" ]]; then
   printf '%s\n' "$before" > "$claude_settings.bak-$DATE"

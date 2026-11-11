@@ -107,10 +107,9 @@ def claude_settings_path() -> Path:
 
 
 def claude_values(s: dict) -> dict:
-    """The keys this project owns in ~/.claude/settings.json."""
+    """The keys this project owns in ~/.claude/settings.json (never the response style)."""
     return {
         "theme": f"custom:{s['theme']}",
-        "outputStyle": t("output_style", s["language"]),
         "spinnerVerbs": {"mode": "replace", "verbs": t("spinner.verbs", s["language"])},
         **STATUS_LINES,
     }

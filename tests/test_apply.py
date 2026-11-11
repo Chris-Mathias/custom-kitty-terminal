@@ -47,9 +47,15 @@ class ApplyTest(unittest.TestCase):
         self.assertEqual(data["model"], "opus")
         self.assertEqual(data["enabledPlugins"], {"a": True})
         self.assertEqual(data["theme"], "custom:dracula")
-        self.assertEqual(data["outputStyle"], "Português conciso")
+        self.assertNotIn("outputStyle", data)
         self.assertEqual(data["statusLine"]["command"], "~/.claude/statusline.sh")
         self.assertEqual(data["subagentStatusLine"]["command"], "~/.claude/subagent-statusline.sh")
+
+    def test_users_own_output_style_untouched(self):
+        self.claude.parent.mkdir(parents=True)
+        self.claude.write_text(json.dumps({"outputStyle": "Explanatory"}))
+        ckt.apply(self.settings(language="pt"), reload=False)
+        self.assertEqual(json.loads(self.claude.read_text())["outputStyle"], "Explanatory")
 
     def test_merge_creates_when_absent(self):
         ckt.apply(self.settings(), reload=False)
