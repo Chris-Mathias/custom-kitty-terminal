@@ -40,6 +40,7 @@ declare module 'claude-code' {
       git: Shaped<GitInfo | null>
       sessions: Shaped<SessionRow[] | null>
       strings: Shaped<Record<string, string>>
+      layout: Shaped<{ sections: ('sessions' | 'git' | 'tasks' | 'files')[]; autoOpen: boolean } | null>
     }
   }
 }

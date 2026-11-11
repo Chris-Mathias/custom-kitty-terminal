@@ -37,9 +37,16 @@ const SETTINGS = '/home/teste/.config/custom-kitty-terminal/settings.json'
 type On = Parameters<Parameters<typeof test>[1]>[1]
 type Api = Parameters<Parameters<typeof test>[1]>[0]
 
-async function mountPanel($: Api, on: On, files: Record<string, string>, status = STATUS) {
+async function mountPanel(
+  $: Api,
+  on: On,
+  files: Record<string, string>,
+  status = STATUS,
+  opts: { skipCommand?: boolean } = {},
+) {
+  const opened: unknown[] = []
   on('command.register', () => ({ value: { command: 'panel' } }))
-  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.open', (_, e) => (opened.push(e), { value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
   on('env.get', (_, e) => ({ value: e.name === 'HOME' ? '/home/teste' : undefined }))
   // The panel finds the repo's i18n folder through the plugin folder's real path.
@@ -89,10 +96,11 @@ async function mountPanel($: Api, on: On, files: Record<string, string>, status 
   await $.tool.call({ tool: 'Read', file_path: '/proj/Cargo.toml' })
   await $.tool.call({ tool: 'Edit', file_path: '/proj/src/main.rs', old_string: 'a', new_string: 'b' })
 
+  if (opts.skipCommand) return { ui: undefined as never, text: undefined as never, tmuxCalls, opened }
   await $.command.run({ command: 'panel' })
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   const text = async (re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
-  return { ui, text, tmuxCalls }
+  return { ui, text, tmuxCalls, opened }
 }
 
 test('the panel shows sessions, git, tasks and files', async ($, on) => {
@@ -141,4 +149,22 @@ test('the git section lists every changed file (the pane scrolls)', async ($, on
   expect(await text(/file11\.rs/)).toBe('M  file11.rs src')
   expect(await text(/more$/)).toBeUndefined()
   await ui.unmount()
+})
+
+test('the panel follows the section order and visibility from the settings', async ($, on) => {
+  const { ui } = await mountPanel($, on, {
+    [SETTINGS]: '{"language":"en","panel":{"sections":["files","git"]}}',
+    '/repo/i18n/en.json': EN,
+  })
+  const heads = (await ui.findAll({ type: 'Text', text: /^(SESSIONS|GIT|TASKS|FILES)/ })).map(t => t.text)
+  expect(heads).toEqual(['FILES', 'GIT'])
+  await ui.unmount()
+})
+
+test('the panel stays closed at start when auto open is off', async ($, on) => {
+  const { opened } = await mountPanel($, on, {
+    [SETTINGS]: '{"language":"en","panel":{"auto_open":false}}',
+    '/repo/i18n/en.json': EN,
+  }, STATUS, { skipCommand: true })
+  expect(opened.length).toBe(0)
 })

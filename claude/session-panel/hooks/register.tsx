@@ -48,10 +48,34 @@ async function readJson($: Engine, path: string): Promise<Record<string, unknown
   }
 }
 
+// ---------- layout ----------
+// Which sections show, in what order, and whether the panel opens by itself
+// (settings menu → Claude Code → Side panel).
+const SECTIONS = ['sessions', 'git', 'tasks', 'files'] as const
+type Section = (typeof SECTIONS)[number]
+type Layout = { sections: Section[]; autoOpen: boolean }
+const DEFAULT_LAYOUT: Layout = { sections: [...SECTIONS], autoOpen: true }
+
+async function readSettings($: Engine): Promise<Record<string, unknown>> {
+  const dir = (await $.env.get('CKT_CONFIG_DIR')) || `${await $.env.get('HOME')}/.config/custom-kitty-terminal`
+  return readJson($, `${dir}/settings.json`)
+}
+
+function layoutOf(settings: Record<string, unknown>): Layout {
+  const panel = (settings.panel ?? {}) as { sections?: unknown; auto_open?: unknown }
+  const sections = Array.isArray(panel.sections)
+    ? (panel.sections as unknown[]).filter(
+        (x, i, all): x is Section => SECTIONS.includes(x as Section) && all.indexOf(x) === i,
+      )
+    : [...SECTIONS]
+  return { sections, autoOpen: typeof panel.auto_open === 'boolean' ? panel.auto_open : true }
+}
+
 async function loadStrings($: Engine): Promise<Strings> {
   try {
-    const dir = (await $.env.get('CKT_CONFIG_DIR')) || `${await $.env.get('HOME')}/.config/custom-kitty-terminal`
-    const lang = (await readJson($, `${dir}/settings.json`)).language === 'pt' ? 'pt' : 'en'
+    const settings = await readSettings($)
+    await update($, layout, () => layoutOf(settings))
+    const lang = settings.language === 'pt' ? 'pt' : 'en'
     const real = (await $.fs.stat($.plugin.root, { resolve: true })).realPath
     if (!real) return EN
     const repo = real.split('/').slice(0, -2).join('/')
@@ -82,6 +106,7 @@ const sessions = atom({ plugin: 'session-panel', key: 'sessions' } as const, nul
 const strings = atom({ plugin: 'session-panel', key: 'strings' } as const, {} as Record<string, string>, {
   shape: 'strings-1',
 })
+const layout = atom({ plugin: 'session-panel', key: 'layout' } as const, null as Layout | null, { shape: 'layout-1' })
 // Branch name stored for a detached HEAD; drawn in the user's language.
 const DETACHED = '\u0000detached'
 
@@ -304,7 +329,7 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const S = await refreshStrings($)
     await $.command.register({ name: 'panel', description: S['panel.command_description'] })
-    void $.ui.open(open(S))
+    if (((await read($, layout)) ?? DEFAULT_LAYOUT).autoOpen) void $.ui.open(open(S))
     // The language can change from the settings menu while the session runs.
     $.clock.every(5000, () => void refreshStrings($))
 
@@ -506,24 +531,21 @@ export const register: Register = on => {
         </Box>
       )
 
+    const blocks: Record<Section, [string, unknown]> = {
+      sessions: [S['panel.sessions'], sessionRows],
+      git: [S['panel.git'], gitRows],
+      tasks: [t.length ? `${S['panel.tasks']} ${done}/${t.length}` : S['panel.tasks'], todoRows],
+      files: [S['panel.files'], fileRows],
+    }
+    const { sections } = (await read($, layout)) ?? DEFAULT_LAYOUT
     return (
       <Box flexDirection="column" gap={1} paddingLeft={1}>
-        <Box flexDirection="column">
-          <Head>{S['panel.sessions']}</Head>
-          {sessionRows}
-        </Box>
-        <Box flexDirection="column">
-          <Head>{S['panel.git']}</Head>
-          {gitRows}
-        </Box>
-        <Box flexDirection="column">
-          <Head>{t.length ? `${S['panel.tasks']} ${done}/${t.length}` : S['panel.tasks']}</Head>
-          {todoRows}
-        </Box>
-        <Box flexDirection="column">
-          <Head>{S['panel.files']}</Head>
-          {fileRows}
-        </Box>
+        {sections.map(name => (
+          <Box key={name} flexDirection="column">
+            <Head>{blocks[name][0]}</Head>
+            {blocks[name][1]}
+          </Box>
+        ))}
       </Box>
     )
   })
