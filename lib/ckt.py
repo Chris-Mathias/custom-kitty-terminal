@@ -49,9 +49,16 @@ def load_settings() -> dict:
 
 
 def write_atomic(path: Path, text: str) -> None:
+    """Replaces the file in one step, writing through a symlink and keeping its permissions."""
+    if path.is_symlink():
+        path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text)
+    try:
+        os.chmod(tmp, path.stat().st_mode & 0o7777)
+    except FileNotFoundError:
+        pass
     os.replace(tmp, path)
 
 

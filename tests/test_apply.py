@@ -71,6 +71,18 @@ class ApplyTest(unittest.TestCase):
         self.assertTrue(ckt.merge_claude_settings(self.settings()))
         self.assertFalse(ckt.merge_claude_settings(self.settings()))
 
+    def test_symlinked_claude_settings_written_through(self):
+        real = self.home / "dotfiles/claude-settings.json"
+        real.parent.mkdir()
+        real.write_text('{"model": "opus"}')
+        real.chmod(0o600)
+        self.claude.parent.mkdir(parents=True)
+        self.claude.symlink_to(real)
+        ckt.apply(self.settings(), reload=False)
+        self.assertTrue(self.claude.is_symlink())
+        self.assertEqual(json.loads(real.read_text())["theme"], "custom:fedora")
+        self.assertEqual(real.stat().st_mode & 0o777, 0o600)
+
 
 if __name__ == "__main__":
     unittest.main()
