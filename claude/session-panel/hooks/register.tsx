@@ -23,7 +23,7 @@ const EN = {
   'panel.agents': 'SUBAGENTS',
   'panel.no_agents': 'none running',
   'panel.main_conversation': 'main conversation',
-  'panel.agent_command_description': 'Shows a subagent\'s conversation: /agent 2, next, prev or main',
+  'panel.agent_command_description': "Shows a subagent's conversation: /agent 2, next, prev or main",
   'panel.no_such_agent': 'No subagent with that number.',
   'panel.reading': 'reading…',
   'panel.none_open': 'none open',
