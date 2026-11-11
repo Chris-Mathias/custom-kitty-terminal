@@ -53,5 +53,13 @@
   "panel.opened": "Painel da sessão aberto.",
   "panel.mark_read": "L",
   "panel.mark_edited": "E",
-  "panel.mark_created": "N"
+  "panel.mark_created": "N",
+  "menu.title": "Configurações",
+  "menu.language": "Idioma",
+  "menu.theme": "Tema",
+  "menu.font": "Fonte",
+  "menu.font_size": "Tamanho da fonte",
+  "menu.help_top": "↑↓ navega   enter abre   q sai",
+  "menu.help_sub": "↑↓ navega   enter escolhe   esc volta",
+  "menu.applied": "Aplicado. Sessões do Claude já abertas podem precisar ser reiniciadas."
 }

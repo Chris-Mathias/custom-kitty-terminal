@@ -53,5 +53,13 @@
   "panel.opened": "Session panel opened.",
   "panel.mark_read": "R",
   "panel.mark_edited": "E",
-  "panel.mark_created": "N"
+  "panel.mark_created": "N",
+  "menu.title": "Settings",
+  "menu.language": "Language",
+  "menu.theme": "Theme",
+  "menu.font": "Font",
+  "menu.font_size": "Font size",
+  "menu.help_top": "↑↓ move   enter open   q quit",
+  "menu.help_sub": "↑↓ move   enter choose   esc back",
+  "menu.applied": "Applied. Claude sessions that are already open may need a restart."
 }
