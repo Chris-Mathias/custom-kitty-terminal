@@ -8,6 +8,7 @@
 # and the text of that row itself). Relative paths are looked up in the folder of
 # the program running in the window (Claude, the shell) and its git root.
 # What each click found goes to ~/.cache/custom-kitty-terminal/ctrl-click.log.
+import importlib
 import os
 import subprocess
 import sys
@@ -24,6 +25,13 @@ LOG = os.path.expanduser('~/.cache/custom-kitty-terminal/ctrl-click.log')
 
 def main(args: list[str]) -> str:
     return ''
+
+
+def _fresh(name: str):
+    """The module as it is on disk now. kitty keeps imported modules for its whole life,
+    so after an update (git pull) a plain import would hand back the old code."""
+    module = sys.modules.get(name)
+    return importlib.reload(module) if module else importlib.import_module(name)
 
 
 def _log(msg: str) -> None:
@@ -75,8 +83,8 @@ def handle_result(args: list[str], answer: str, target_window_id: int, boss: Bos
 
 
 def _open(boss: Boss, target_window_id: int) -> None:
-    import ckt
-    import openpath as op
+    ckt = _fresh('ckt')
+    op = _fresh('openpath')
     from kitty.fast_data_types import click_mouse_url
 
     window = boss.window_id_map.get(target_window_id) or boss.active_window
