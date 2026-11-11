@@ -12,7 +12,19 @@ STUBS = {
     "sudo": 'exec "$@"',
     "dnf": 'echo "dnf $*" >> "$LOG"',
     "rpm": 'exit 1',  # nothing installed yet
-    "curl": 'echo "curl $*" >> "$LOG"; echo "echo claude-installer-ran >> \\"$LOG\\""',
+    "curl": '''echo "curl $*" >> "$LOG"
+case "$*" in
+  *kitty/installer.sh*) cat <<'SH'
+echo kitty-installer-ran >> "$LOG"
+mkdir -p "$HOME/.local/kitty.app/bin" "$HOME/.local/kitty.app/share/applications"
+printf '#!/bin/sh\\necho kitty 0.49.0\\n' > "$HOME/.local/kitty.app/bin/kitty"
+cp "$HOME/.local/kitty.app/bin/kitty" "$HOME/.local/kitty.app/bin/kitten"
+chmod +x "$HOME/.local/kitty.app/bin/kitty" "$HOME/.local/kitty.app/bin/kitten"
+printf '[Desktop Entry]\\nExec=kitty\\nIcon=kitty\\n' > "$HOME/.local/kitty.app/share/applications/kitty.desktop"
+SH
+  ;;
+  *) echo "echo claude-installer-ran >> \\"$LOG\\"" ;;
+esac''',
     "chsh": 'echo "chsh $*" >> "$LOG"',
     "gsettings": '''echo "gsettings $*" >> "$LOG"
 case "$1 $3" in
@@ -28,7 +40,7 @@ if [ "$1" = clone ]; then
     *) cp -r "{REPO}" "$dest" && rm -rf "$dest/.git" && mkdir "$dest/.git" ;;
   esac
 fi''',
-    "kitty": "exit 0",
+    "kitty": 'echo "kitty ${KITTY_VERSION:-0.47.1}"',
     "pkill": "exit 0",
     "fc-list": "printf 'Adwaita Mono\\nSymbola\\n'",
     "zsh": "exit 0",
@@ -163,9 +175,24 @@ class BootstrapTest(unittest.TestCase):
     def test_debian_and_ubuntu_use_apt(self):
         self.only("apt-get", "dpkg")
         _, calls = self.run_bootstrap("--yes", "--no-claude")
-        self.assertIn("apt-get install -y", calls)
-        self.assertIn("python3", calls)
+        line = next(l for l in calls.splitlines() if l.startswith("apt-get install -y"))
+        self.assertIn("python3", line)
+        self.assertNotIn("kitty", line)  # the distro's kitty is too old: the official one is used
         self.assertNotIn("dnf", calls)
+
+    def test_old_kitty_gets_the_official_build(self):
+        self.env["KITTY_VERSION"] = "0.32.2"
+        out, calls = self.run_bootstrap("--yes", "--no-claude")
+        self.assertIn("sw.kovidgoyal.net/kitty/installer.sh", calls)
+        self.assertIn("kitty-installer-ran", calls)
+        app = self.home / ".local/kitty.app"
+        self.assertEqual(os.readlink(self.home / ".local/bin/kitty"), str(app / "bin/kitty"))
+        desktop = (self.home / ".local/share/applications/kitty.desktop").read_text()
+        self.assertIn(f"Exec={app}/bin/kitty", desktop)
+
+    def test_recent_kitty_is_kept(self):
+        _, calls = self.run_bootstrap("--yes", "--no-claude")
+        self.assertNotIn("kitty/installer.sh", calls)
 
     def test_arch_uses_pacman(self):
         self.only("pacman")

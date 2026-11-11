@@ -7,6 +7,10 @@
 # GNOME grabs Ctrl+Alt+T before any app sees it, so kitty's own Ctrl+Alt+T
 # mapping only fires when this shortcut is removed.
 
+# Desktop shortcuts may run without ~/.local/bin on the PATH (where the official
+# kitty build is linked).
+export PATH="$HOME/.local/bin:$PATH"
+
 # The oldest kitty is the main instance (the one with the saved tabs).
 pid=$(pgrep -xo kitty || true)
 sock="unix:@kitty-$pid"

@@ -87,7 +87,8 @@ if command -v dnf >/dev/null; then
   have() { rpm -q "$1" >/dev/null 2>&1; }
   install() { sudo dnf install -y "$@"; }
 elif command -v apt-get >/dev/null; then
-  pm=apt; base=(kitty jq git python3); fonts=(fonts-adwaita-mono fonts-symbola)
+  # Debian/Ubuntu/Mint ship an old kitty: the official build is installed below instead.
+  pm=apt; base=(jq git python3); fonts=(fonts-adwaita-mono fonts-symbola)
   have() { dpkg -s "$1" >/dev/null 2>&1; }
   install() { sudo apt-get install -y "$@"; }
 elif command -v pacman >/dev/null; then
@@ -118,9 +119,34 @@ if [[ -n $pm ]]; then
 else
   warn "no dnf, apt, pacman or zypper here: install these yourself: kitty jq git python3 (and zsh with --zsh)"
 fi
-for cmd in kitty git python3; do
+for cmd in git python3; do
   command -v "$cmd" >/dev/null || { warn "$cmd is missing; install it and run this again"; exit 1; }
 done
+
+# ---------- kitty ----------
+# The shortcuts need kitty 0.46 or newer (keyboard modes with a timeout). An
+# older or missing kitty is replaced by the official build in ~/.local/kitty.app.
+MIN_KITTY=0.46.0
+kitty_version() { kitty --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1; }
+version_ok() { [[ $(printf '%s\n%s\n' "$MIN_KITTY" "$1" | sort -V | head -1) == "$MIN_KITTY" ]]; }
+current=$(kitty_version || true)
+if [[ -z $current ]] || ! version_ok "$current"; then
+  step "kitty (official build)"
+  [[ -n $current ]] && warn "kitty $current is older than $MIN_KITTY"
+  curl -fsSL https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
+  app="$HOME/.local/kitty.app"
+  mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
+  ln -sf "$app/bin/kitty" "$app/bin/kitten" "$HOME/.local/bin/"
+  for desktop in "$app"/share/applications/kitty*.desktop; do
+    [[ -e $desktop ]] || continue
+    sed -e "s|Icon=kitty|Icon=$app/share/icons/hicolor/256x256/apps/kitty.png|g" \
+        -e "s|Exec=kitty|Exec=$app/bin/kitty|g" "$desktop" > "$HOME/.local/share/applications/$(basename "$desktop")"
+  done
+  export PATH="$HOME/.local/bin:$PATH"
+  ok "kitty $(kitty_version) in $app"
+else
+  ok "kitty $current"
+fi
 
 # ---------- Claude Code ----------
 if [[ $want_claude == yes ]]; then
