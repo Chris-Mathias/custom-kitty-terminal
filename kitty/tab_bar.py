@@ -2,8 +2,9 @@
 # plus a ⚙ button at the right end that opens the settings menu (ct-config).
 #
 # kitty has no API for extra tab bar buttons, so the click is caught by wrapping
-# TabManager.handle_tab_bar_mouse. If kitty changes that internal API, the
-# wrapper isn't installed, no ⚙ is drawn and the tabs keep working as usual.
+# TabManager.handle_tab_bar_mouse. The wrapper passes every argument through
+# untouched and only steps in for a click on a ⚙ that is actually drawn; if
+# kitty's internals change, it gets out of the way and the tabs work as usual.
 import os
 
 from kitty.fast_data_types import Screen
@@ -14,6 +15,13 @@ GEAR = " ⚙ "
 MENU = os.path.expanduser("~/.local/bin/ct-config")
 GEAR_ENABLED = False
 
+# Whether the ⚙ is on screen, per tab bar (it isn't when the tabs fill the bar).
+_gear_drawn: dict[int, bool] = {}
+
+
+def _set_gear_drawn(screen, drawn: bool) -> None:
+    _gear_drawn[id(screen)] = drawn
+
 
 def gear_start(columns: int) -> int:
     """First cell of the ⚙ button; the last cell of the bar stays blank."""
@@ -23,27 +31,36 @@ def gear_start(columns: int) -> int:
 def _open_menu(tab_manager) -> None:
     from kitty.fast_data_types import get_boss
     from kitty.launch import launch, parse_launch_args
-    spec = parse_launch_args(["--type=overlay", "--title=Settings", MENU])
+    spec = parse_launch_args(["--type=overlay", MENU])
     launch(get_boss(), spec.opts, spec.args, target_tab=tab_manager.active_tab)
+
+
+def _gear_click(self, args) -> bool:
+    """True when this mouse event is on a drawn ⚙ (and opens the menu on release)."""
+    from kitty.fast_data_types import GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE
+    x, _y, button, _modifiers, action = args[:5]
+    bar = self.tab_bar
+    if button == -1 or not _gear_drawn.get(id(bar.screen)):
+        return False
+    if (int(x) - bar.window_geometry.left) // bar.cell_width < gear_start(bar.screen.columns):
+        return False
+    if button == GLFW_MOUSE_BUTTON_LEFT and action == GLFW_RELEASE:
+        _open_menu(self)
+    return True
 
 
 def _install_click_hook() -> bool:
     try:
-        from kitty.fast_data_types import GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE
         from kitty.tabs import TabManager
         original = getattr(TabManager, "_ckt_original_mouse", None) or TabManager.handle_tab_bar_mouse
 
-        def handle_tab_bar_mouse(self, x, y, button, modifiers, action):
+        def handle_tab_bar_mouse(self, *args, **kwargs):
             try:
-                bar = self.tab_bar
-                cell = (int(x) - bar.window_geometry.left) // bar.cell_width
-                if button != -1 and cell >= gear_start(bar.screen.columns):
-                    if button == GLFW_MOUSE_BUTTON_LEFT and action == GLFW_RELEASE:
-                        _open_menu(self)
+                if not kwargs and _gear_click(self, args):
                     return None
             except Exception:
                 pass
-            return original(self, x, y, button, modifiers, action)
+            return original(self, *args, **kwargs)
 
         TabManager._ckt_original_mouse = original
         TabManager.handle_tab_bar_mouse = handle_tab_bar_mouse
@@ -60,10 +77,14 @@ def draw_tab(
     before: int, max_tab_length: int, index: int, is_last: bool,
     extra_data: ExtraData,
 ) -> int:
+    if index == 1 and not extra_data.for_layout:
+        # New pass: if the tabs overflow, kitty stops before the last one.
+        _set_gear_drawn(screen, False)
     end = draw_tab_with_powerline(draw_data, screen, tab, before, max_tab_length, index, is_last, extra_data)
     if GEAR_ENABLED and is_last and not extra_data.for_layout:
         start = gear_start(screen.columns)
-        if screen.cursor.x < start:
+        drawn = screen.cursor.x < start
+        if drawn:
             fg, bg = screen.cursor.fg, screen.cursor.bg
             screen.cursor.bg = as_rgb(color_as_int(draw_data.default_bg))
             screen.cursor.x = start
@@ -72,4 +93,5 @@ def draw_tab(
             # kitty clears the row after the cursor once the last tab is drawn,
             # so the cursor is left past the button.
             screen.cursor.fg, screen.cursor.bg = fg, bg
+        _set_gear_drawn(screen, drawn)
     return end

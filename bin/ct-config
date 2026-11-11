@@ -23,6 +23,12 @@ KEYS = {
 }
 
 
+def set_title(title: str) -> None:
+    """Window title (kitty shows it on the tab), in the user's language."""
+    sys.stdout.write(f"\033]2;{title}\a")
+    sys.stdout.flush()
+
+
 def put(win, y, x, text, attr=0):
     h, w = win.getmaxyx()
     if 0 <= y < h and x < w:
@@ -95,6 +101,7 @@ def run(win):
 
     m = Menu(ckt.load_settings(), ckt.mono_fonts())
     while True:
+        set_title(ckt.t("menu.title", m.settings["language"]))
         draw(win, m, colors)
         action = m.key(KEYS.get(win.getch(), ""))
         if action == "quit":
