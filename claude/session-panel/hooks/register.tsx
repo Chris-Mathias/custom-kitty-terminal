@@ -292,12 +292,12 @@ const fileLabel = (path: string, n: number): { base: string; dir?: string } => {
 }
 
 const TODO_MARK: Record<TodoStatus, string> = { completed: '✓', in_progress: '◐', pending: '○' }
-const TODO_COLOR: Record<TodoStatus, string> = { completed: 'success', in_progress: '#7dcfff', pending: 'inactive' }
+const TODO_COLOR: Record<TodoStatus, string> = { completed: 'success', in_progress: 'permission', pending: 'inactive' }
 const TOUCH_COLOR: Record<TouchKind, string> = { read: 'inactive', edited: 'warning', created: 'success' }
 const GIT_COLOR = (s: string) => (s === '??' || s.includes('A') ? 'success' : s.includes('D') ? 'error' : 'warning')
 const SESSION_LOOK = (status: string): { mark: string; color: string } =>
   status === 'busy'
-    ? { mark: '◐', color: '#7dcfff' }
+    ? { mark: '◐', color: 'permission' }
     : status === 'idle'
       ? { mark: '○', color: 'inactive' }
       : { mark: '●', color: 'warning' } // waiting for you or another state
@@ -451,7 +451,7 @@ export const register: Register = on => {
       <Box flexDirection="column">
         <Text>
           <Text color="claude">⎇ {fitHead(branchName(g.branch), width - 10)}</Text>
-          {g.ahead > 0 && <Text color="#7dcfff"> ⇡{g.ahead}</Text>}
+          {g.ahead > 0 && <Text color="permission"> ⇡{g.ahead}</Text>}
           {g.behind > 0 && <Text color="warning"> ⇣{g.behind}</Text>}
         </Text>
         {g.files.length === 0 ? (
@@ -471,7 +471,7 @@ export const register: Register = on => {
         {g.files.length > 5 && <Text dimColor>+{g.files.length - 5} {S['panel.others']}</Text>}
         {g.worktrees.map(wt => (
           <Text>
-            <Text color="#7dcfff">⊞</Text> <Text color="claude">{fitHead(branchName(wt.branch), width - 8)}</Text>
+            <Text color="permission">⊞</Text> <Text color="claude">{fitHead(branchName(wt.branch), width - 8)}</Text>
             {wt.changes > 0 ? <Text color="warning"> {wt.changes}</Text> : <Text dimColor> ✓</Text>}
           </Text>
         ))}

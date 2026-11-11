@@ -169,6 +169,10 @@ class PanelStringsTest(unittest.TestCase):
         en = json.loads((REPO / "i18n/en.json").read_text())
         self.assertEqual(builtin, {k: v for k, v in en.items() if k.startswith("panel.")})
 
+    def test_panel_uses_theme_colors_only(self):
+        src = (REPO / "claude/session-panel/hooks/register.tsx").read_text()
+        self.assertEqual(re.findall(r"#[0-9a-fA-F]{6}", src), [])
+
 
 if __name__ == "__main__":
     unittest.main()
