@@ -16,5 +16,19 @@
     "Ajeitando os detalhes",
     "Quase lá"
   ],
-  "apply.claude_settings_invalid": "Não consegui atualizar {path}: o JSON está inválido. Corrija e aplique de novo."
+  "apply.claude_settings_invalid": "Não consegui atualizar {path}: o JSON está inválido. Corrija e aplique de novo.",
+  "status.week": "sem",
+  "subagent.fallback_name": "agente",
+  "subagent.changes": "alt.",
+  "dialog.close_tab": "Fechar esta aba?",
+  "dialog.close_session": "Fechar esta sessão?",
+  "dialog.title_tab": "Fechar aba?",
+  "dialog.title_session": "Fechar sessão?",
+  "dialog.still_running": "Ainda está rodando:",
+  "dialog.close": "fechar",
+  "dialog.cancel": "cancelar",
+  "cli.program": "programa",
+  "cli.already_open": "Essa conversa do Claude já está aberta em outra janela. Para abrir uma nova: claude-panel",
+  "cli.open_in_kitty_or_tmux": "ct: abra dentro do kitty ou do tmux",
+  "cli.ct_help": "Uso: ct [-a|--here] [pasta] [-- argumentos do claude]\n       ct config\n\n  ct                  sessão nova do Claude Code (com o painel lateral) numa aba nova\n  ct ~/projetos/app   o mesmo, nessa pasta\n  ct -a [pasta]       na mesma aba, empilhada (troque pelo painel lateral)\n  ct . -- --continue  passa argumentos para o claude\n  ct config           menu de configurações: idioma, tema, fonte, tamanho da fonte\n  ct ./config         uma pasta chamada literalmente \"config\""
 }

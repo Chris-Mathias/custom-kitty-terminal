@@ -7,10 +7,13 @@
 
 input=$(cat)
 
-# Colors (ANSI). Shades close to the "fedora" theme.
+# Language and colors come from the settings menu (ct config).
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/ckt.sh"
 R=$'\e[0m'; DIM=$'\e[2m'; B=$'\e[1m'
-BLUE=$'\e[38;2;81;162;218m'; MAG=$'\e[38;2;196;156;242m'; CYAN=$'\e[38;2;125;207;255m'
-ORANGE=$'\e[38;2;255;158;100m'; GREEN=$'\e[38;2;158;206;106m'; YELLOW=$'\e[38;2;224;175;104m'; RED=$'\e[38;2;247;118;142m'
+BLUE=$(ckt_color accent); MAG=$(ckt_color magenta); CYAN=$(ckt_color cyan)
+ORANGE=$(ckt_color orange); GREEN=$(ckt_color green); YELLOW=$(ckt_color yellow); RED=$(ckt_color red)
+WEEK=$(ckt_t status.week)
+if [[ $(ckt_lang) == pt ]]; then TIME_LOCALE=pt_BR.UTF-8; else TIME_LOCALE=en_US.UTF-8; fi
 
 IFS=$'\t' read -r cwd proj model effort wt ctx h5 h5r d7 d7r < <(
   jq -r '[
@@ -87,13 +90,13 @@ segment() { # label percent cells reset
 }
 
 r5=""; [[ -n $h5r ]] && r5=$(date -d "@${h5r%.*}" +%H:%M 2>/dev/null)
-r7=""; [[ -n $d7r ]] && r7=$(LC_TIME=pt_BR.UTF-8 date -d "@${d7r%.*}" '+%a %H:%M' 2>/dev/null)
+r7=""; [[ -n $d7r ]] && r7=$(LC_TIME=$TIME_LOCALE date -d "@${d7r%.*}" '+%a %H:%M' 2>/dev/null)
 
 right_at() { # cells show_reset
   local cells=$1 resets=$2 parts=() out p
   [[ -n $ctx ]] && parts+=("$(segment ctx "$ctx" "$cells" "")")
   [[ -n $h5 ]] && parts+=("$(segment 5h "$h5" "$cells" "$( ((resets)) && printf '%s' "$r5")")")
-  [[ -n $d7 ]] && parts+=("$(segment sem "$d7" "$cells" "$( ((resets)) && printf '%s' "$r7")")")
+  [[ -n $d7 ]] && parts+=("$(segment "$WEEK" "$d7" "$cells" "$( ((resets)) && printf '%s' "$r7")")")
   (( ${#parts[@]} )) || return 0
   out="${parts[0]}"
   for p in "${parts[@]:1}"; do out+="  ${DIM}│${R}  $p"; done

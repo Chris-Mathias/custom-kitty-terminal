@@ -6,8 +6,10 @@
 
 input=$(cat)
 
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/ckt.sh"
 R=$'\e[0m'; DIM=$'\e[2m'; B=$'\e[1m'
-MAG=$'\e[38;2;196;156;242m'; CYAN=$'\e[38;2;125;207;255m'
+MAG=$(ckt_color magenta); CYAN=$(ckt_color cyan)
+CHANGES=$(ckt_t subagent.changes)
 
 session_cwd=$(jq -r '.cwd // ""' <<<"$input")
 cols=$(jq -r '.columns // 100' <<<"$input")
@@ -28,9 +30,9 @@ short_time() { # ms -> 42m / 1h05m / 12s
   else printf '%ds' "$s"; fi
 }
 
-jq -r '.tasks[]? | [
+jq -r --arg fallback "$(ckt_t subagent.fallback_name)" '.tasks[]? | [
   .id,
-  (.name // .agentType // .type // "agente"),
+  (.name // .agentType // .type // $fallback),
   (.label // .description // ""),
   (.cwd // ""),
   (.startTime // 0 | tostring),
@@ -50,7 +52,7 @@ while IFS=$'\t' read -r id name label cwd start tokens status; do
     br=$(sed -E 's/(agent-[0-9a-f]{6})[0-9a-f]+/\1/' <<<"$br")
     n=$(git --no-optional-locks -C "$cwd" status --porcelain 2>/dev/null | wc -l)
     where="${MAG}⎇ ${br}${R}"
-    (( n > 0 )) && where+=" ${DIM}${n} alt.${R}"
+    (( n > 0 )) && where+=" ${DIM}${n} ${CHANGES}${R}"
   fi
 
   right=""

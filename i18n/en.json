@@ -16,5 +16,19 @@
     "Polishing the details",
     "Almost there"
   ],
-  "apply.claude_settings_invalid": "Couldn't update {path}: it isn't valid JSON. Fix it and apply again."
+  "apply.claude_settings_invalid": "Couldn't update {path}: it isn't valid JSON. Fix it and apply again.",
+  "status.week": "wk",
+  "subagent.fallback_name": "agent",
+  "subagent.changes": "chg.",
+  "dialog.close_tab": "Close this tab?",
+  "dialog.close_session": "Close this session?",
+  "dialog.title_tab": "Close tab?",
+  "dialog.title_session": "Close session?",
+  "dialog.still_running": "Still running:",
+  "dialog.close": "close",
+  "dialog.cancel": "cancel",
+  "cli.program": "program",
+  "cli.already_open": "That Claude conversation is already open in another window. To open a new one: claude-panel",
+  "cli.open_in_kitty_or_tmux": "ct: run it inside kitty or tmux",
+  "cli.ct_help": "Usage: ct [-a|--here] [folder] [-- claude arguments]\n       ct config\n\n  ct                  new Claude Code session (with the side panel) in a new tab\n  ct ~/projects/app   same, in that folder\n  ct -a [folder]      in the same tab, stacked (switch with the side panel)\n  ct . -- --continue  pass arguments to claude\n  ct config           settings menu: language, theme, font, font size\n  ct ./config         a folder literally named \"config\""
 }
