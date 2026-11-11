@@ -42,7 +42,7 @@ class SettingsModelTest(unittest.TestCase):
         self.assertEqual(d["response_style"], {"enabled": False, "language": "pt", "length": "short", "previous": None})
         self.assertEqual(d["spinner"], "ours")
         self.assertEqual(d["status_line"], {k: True for k in ckt.STATUS_ITEMS})
-        self.assertEqual(d["panel"], {"sections": ["sessions", "agents", "git", "tasks", "files"], "auto_open": True})
+        self.assertEqual(d["panel"], {"sections": ["sessions", "agents", "tasks", "git", "files"], "auto_open": True})
         self.assertIs(d["subagent_rows"], True)
         self.assertIs(d["reopen_tabs"], True)
         self.assertEqual(d["confirm_close"], "running")

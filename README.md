@@ -10,7 +10,7 @@ A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claud
 - **Several Claude sessions in the same tab**, stacked, switched from the side panel.
 - **Close with confirmation** only when something is running, in its own dialog.
 - **Claude Code**: one-line status line (project, worktree, model, context and 5h/weekly limits), subagent lines with each one's branch/worktree, themed colors and spinner verbs in your language. Claude's response style is left as you set it.
-- **Side panel** (`session-panel` mod): open sessions, running subagents, git (with worktrees), tasks and files touched.
+- **Side panel** (`session-panel` mod): open sessions, running subagents, tasks, git (with worktrees) and files touched.
 
 ## Install
 
@@ -42,7 +42,7 @@ Upgrading from the older Portuguese version of this repo: just run `./install.sh
 | Group | Settings |
 |---|---|
 | Appearance | theme, font, font size, line height, padding, tab style (slanted, round, angled, separators), tab bar on top or bottom, transparency, cursor shape and blink, title bar (GNOME, kitty's own, none — needs a kitty restart), ligatures |
-| Claude Code | response style (off by default; when on: response language and length — short, balanced, detailed), status line items, the subagent list below the prompt (shown or hidden — the subagents are also in the side panel), side panel sections (sessions, subagents, git, tasks, files), their order and whether it opens by itself, phrases while thinking (ours or Claude's) |
+| Claude Code | response style (off by default; when on: response language and length — short, balanced, detailed), status line items, the subagent list below the prompt (shown or hidden — the subagents are also in the side panel), side panel sections (sessions, subagents, tasks, git, files), their order and whether it opens by itself, phrases while thinking (ours or Claude's) |
 | Behavior | reopen tabs on start, confirm before closing (only if something runs, always, never), whether kitty keeps `Ctrl+W`/`Ctrl+N`, scrollback lines, bell |
 | Shortcuts | every shortcut in the table below: pick one, choose "Record new keys" and press the combination. If it's already used (by this project or by kitty), the menu asks before swapping. "Reset to default" and "Reset all" undo changes. |
 

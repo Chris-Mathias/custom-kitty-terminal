@@ -53,7 +53,7 @@ async function readJson($: Engine, path: string): Promise<Record<string, unknown
 // ---------- layout ----------
 // Which sections show, in what order, and whether the panel opens by itself
 // (settings menu → Claude Code → Side panel).
-const SECTIONS = ['sessions', 'agents', 'git', 'tasks', 'files'] as const
+const SECTIONS = ['sessions', 'agents', 'tasks', 'git', 'files'] as const
 type Section = (typeof SECTIONS)[number]
 type Layout = { sections: Section[]; autoOpen: boolean }
 const DEFAULT_LAYOUT: Layout = { sections: [...SECTIONS], autoOpen: true }

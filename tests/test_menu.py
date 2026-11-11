@@ -94,7 +94,7 @@ class MenuTest(unittest.TestCase):
         for _ in range(4):
             m.key("up")
         self.assertEqual(m.key("enter"), "apply")  # drops it first
-        self.assertEqual(m.settings["panel"]["sections"], ["files", "sessions", "agents", "git", "tasks"])
+        self.assertEqual(m.settings["panel"]["sections"], ["files", "sessions", "agents", "tasks", "git"])
 
     def test_panel_section_visibility(self):
         m = menu()

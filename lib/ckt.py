@@ -15,7 +15,7 @@ REPO = Path(__file__).resolve().parent.parent
 LANGUAGES = ("en", "pt")
 THEMES = ("fedora", "catppuccin", "tokyo-night", "dracula", "gruvbox", "light")
 FONT_SIZES = range(8, 25)
-PANEL_SECTIONS = ("sessions", "agents", "git", "tasks", "files")
+PANEL_SECTIONS = ("sessions", "agents", "tasks", "git", "files")
 STATUS_ITEMS = ("context", "five_hour", "weekly", "resets", "model", "worktree")
 
 # Every scalar setting and the values it may take (the first tuple entries are
