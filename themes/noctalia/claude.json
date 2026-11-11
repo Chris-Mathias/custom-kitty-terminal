@@ -1,0 +1,17 @@
+{
+  "name": "Noctalia",
+  "base": "dark",
+  "overrides": {
+    "claude": "#7a67e4",
+    "promptBorder": "#666473",
+    "suggestion": "#221f32",
+    "remember": "#cc66bd",
+    "permission": "#cd96e9",
+    "planMode": "#816fec",
+    "autoAccept": "#cc66bd",
+    "bashBorder": "#a093ec",
+    "success": "#816fec",
+    "warning": "#af5ed8",
+    "error": "#fd4663"
+  }
+}

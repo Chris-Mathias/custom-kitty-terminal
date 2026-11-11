@@ -4,7 +4,7 @@ A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claud
 
 - **Looks like GNOME's terminal out of the box**: GNOME palette, Adwaita Mono font (the system's monospace font when it isn't available), the desktop's own title bar.
 - **Settings menu** (`ct config`, `Ctrl+Shift+F2` or the ⚙ at the right of the tab bar): language (English or Português), look, Claude Code, behavior and every shortcut — see [Settings](#settings).
-- **Six themes**, each changing kitty and Claude Code together: Fedora, Catppuccin (Mocha), Tokyo Night, Dracula, Gruvbox (dark) and Light.
+- **Seven themes**, each changing kitty and Claude Code together: Fedora, Catppuccin (Mocha), Tokyo Night, Dracula, Gruvbox (dark), Light and Noctalia.
 - **Slanted tabs** on top, with the title Claude gives each session and a `+` button.
 - **Reopens as you left it**: when kitty starts, last time's tabs come back and each Claude resumes the same conversation.
 - **Several Claude sessions in the same tab**, stacked, switched from the side panel.

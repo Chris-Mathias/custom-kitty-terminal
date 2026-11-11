@@ -84,7 +84,7 @@ class I18nTest(unittest.TestCase):
 
 class ThemeTest(unittest.TestCase):
     def test_theme_ids(self):
-        self.assertEqual(ckt.THEMES, ("fedora", "catppuccin", "tokyo-night", "dracula", "gruvbox", "light"))
+        self.assertEqual(ckt.THEMES, ("fedora", "catppuccin", "tokyo-night", "dracula", "gruvbox", "light", "noctalia"))
 
     def test_every_theme_complete(self):
         for theme in ckt.THEMES:
