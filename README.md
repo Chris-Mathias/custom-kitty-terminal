@@ -92,6 +92,8 @@ The defaults (change any of them in Settings → Shortcuts):
 ## Files
 
 ```
+bootstrap.sh  one-command install/update (packages, Claude Code, zsh, default terminal)
+install.sh    links everything into place and applies your settings
 kitty/      kitty.conf, tabs.conf (tab style), tab_bar.py (tabs + ⚙ button),
             close_tab.py + close-tab-dialog.sh (Ctrl+W), save_session.py (reopen tabs)
 bin/        ct, ct-config (settings menu), ckt-apply, claude-panel, claude-restore
