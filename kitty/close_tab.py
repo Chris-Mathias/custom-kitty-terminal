@@ -9,6 +9,18 @@ from kitty.constants import config_dir
 
 # kitty loads this file without __file__; the config folder comes from config_dir.
 DIALOG = os.path.join(config_dir, 'close-tab-dialog.sh')
+LIB = os.path.join(os.path.dirname(os.path.realpath(DIALOG)), '..', 'lib')
+
+
+def _t(key: str) -> str:
+    try:
+        import sys
+        if LIB not in sys.path:
+            sys.path.insert(0, LIB)
+        import ckt
+        return ckt.t(key)
+    except Exception:
+        return key
 
 
 def main(args: list[str]) -> str:
@@ -21,7 +33,7 @@ def _label(window) -> str:
     if '/claude/' in text or (cmd and os.path.basename(cmd[0]) == 'claude'):
         prog = 'Claude Code'
     else:
-        prog = os.path.basename(cmd[0]) if cmd else 'programa'
+        prog = os.path.basename(cmd[0]) if cmd else _t('cli.program')
     title = (window.title or '').strip().lstrip('✳◐⠂⠐ ').strip()
     return f'{prog} · {title}' if title and title != prog else prog
 
@@ -49,6 +61,6 @@ def handle_result(args: list[str], answer: str, target_window_id: int, boss: Bos
             return
         target = f'tab:{tab.id}'
     from kitty.launch import launch, parse_launch_args
-    title = 'Fechar sessão?' if window_only else 'Fechar aba?'
+    title = _t('dialog.title_session' if window_only else 'dialog.title_tab')
     spec = parse_launch_args(['--type=overlay', f'--title={title}', DIALOG, target, *running])
     launch(boss, spec.opts, spec.args, target_tab=tab)

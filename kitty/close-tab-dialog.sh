@@ -3,12 +3,14 @@
 # Usage: close-tab-dialog.sh tab:<id>|window:<id> <running program>...
 target=$1; shift
 kind=${target%%:*}; target_id=${target#*:}
-if [[ $kind == window ]]; then question="Fechar esta sessão?"; else question="Fechar esta aba?"; fi
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/ckt.sh"
+if [[ $kind == window ]]; then question=$(ckt_t dialog.close_session); else question=$(ckt_t dialog.close_tab); fi
 
-R=$'\e[0m'; B=$'\e[1m'; DIM=$'\e[38;2;139;138;144m'
-BLUE=$'\e[38;2;81;162;218m'; YELLOW=$'\e[38;2;224;175;104m'; WHITE=$'\e[38;2;255;255;255m'
-BG=$'\e[48;2;28;28;31m'; BOX=$'\e[48;2;38;38;44m'; BORDER=$'\e[38;2;60;110;180m'
-KEY_BLUE=$'\e[48;2;60;110;180m\e[38;2;255;255;255m'; KEY_GRAY=$'\e[48;2;58;58;66m\e[38;2;220;220;220m'
+# Colors from the current theme's palette.
+R=$'\e[0m'; B=$'\e[1m'; DIM=$(ckt_color dim)
+YELLOW=$(ckt_color yellow); WHITE=$(ckt_color fg)
+BG=$(ckt_bg bg); BOX=$(ckt_bg surface); BORDER=$(ckt_color accent_bg)
+KEY_ACCENT="$(ckt_bg accent_bg)$(ckt_color bg)"; KEY_GRAY="$(ckt_bg dim)$(ckt_color bg)"
 
 cols=$(tput cols); lines=$(tput lines)
 width=54; (( width > cols - 4 )) && width=$(( cols - 4 ))
@@ -18,13 +20,13 @@ rows=()
 rows+=("")
 rows+=("  ${B}${WHITE}${question}${R}${BOX}")
 rows+=("")
-rows+=("  ${DIM}Ainda está rodando:${R}${BOX}")
+rows+=("  ${DIM}$(ckt_t dialog.still_running)${R}${BOX}")
 for p in "$@"; do
   (( ${#p} > inner - 6 )) && p="${p:0:inner-7}…"
   rows+=("   ${YELLOW}●${R}${BOX} ${WHITE}${p}${R}${BOX}")
 done
 rows+=("")
-rows+=("  ${KEY_BLUE} Enter ${R}${BOX} ${WHITE}fechar${R}${BOX}     ${KEY_GRAY} Esc ${R}${BOX} ${DIM}cancelar${R}${BOX}")
+rows+=("  ${KEY_ACCENT} Enter ${R}${BOX} ${WHITE}$(ckt_t dialog.close)${R}${BOX}     ${KEY_GRAY} Esc ${R}${BOX} ${DIM}$(ckt_t dialog.cancel)${R}${BOX}")
 rows+=("")
 
 visible() { local s; s=$(printf '%s' "$1" | sed $'s/\e\\[[0-9;]*m//g'); printf '%s' "${#s}"; }
