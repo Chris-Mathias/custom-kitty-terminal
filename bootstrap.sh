@@ -148,6 +148,34 @@ else
   ok "kitty $current"
 fi
 
+# ---------- yazi (file manager) ----------
+# From the distribution when it has it (Arch, openSUSE), otherwise the official
+# static build from GitHub into ~/.local/bin (yazi and ya). Image previews need
+# nothing else in kitty.
+step "File manager (yazi)"
+if command -v yazi >/dev/null; then
+  ok "yazi is already installed"
+elif [[ -n $pm ]] && install yazi >/dev/null 2>&1 && command -v yazi >/dev/null; then
+  ok "installed yazi"
+else
+  # $HOSTTYPE instead of uname: bash's own, nothing else to run.
+  case ${HOSTTYPE:-} in x86_64) arch=x86_64 ;; aarch64|arm64) arch=aarch64 ;; *) arch="" ;; esac
+  tmp="$HOME/.cache/custom-kitty-terminal/yazi-download"
+  rm -rf "$tmp" && mkdir -p "$tmp"
+  url="https://github.com/sxyazi/yazi/releases/latest/download/yazi-$arch-unknown-linux-musl.zip"
+  if [[ -n $arch ]] && curl -fsSL "$url" -o "$tmp/yazi.zip" && python3 -I -m zipfile -e "$tmp/yazi.zip" "$tmp"; then
+    mkdir -p "$HOME/.local/bin"
+    for b in yazi ya; do
+      cp "$tmp/yazi-$arch-unknown-linux-musl/$b" "$HOME/.local/bin/$b" && chmod 755 "$HOME/.local/bin/$b"
+    done
+    export PATH="$HOME/.local/bin:$PATH"
+    ok "yazi (official build) in ~/.local/bin"
+  else
+    warn "couldn't install yazi; the file manager (Ctrl+Alt+E) needs it: https://yazi-rs.github.io"
+  fi
+  rm -rf "$tmp"
+fi
+
 # ---------- Claude Code ----------
 if [[ $want_claude == yes ]]; then
   step "Claude Code"

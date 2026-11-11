@@ -69,7 +69,7 @@ for f in portugues-conciso.md concise-english.md; do unlink_old "$HOME/.claude/o
 migrated=$was_migrated
 
 echo; echo "== kitty (~/.config/kitty)"
-for f in kitty.conf tabs.conf tab_bar.py close_tab.py close-tab-dialog.sh save_session.py; do
+for f in kitty.conf tabs.conf tab_bar.py close_tab.py close-tab-dialog.sh save_session.py open_under_mouse.py; do
   link "$REPO/kitty/$f" "$HOME/.config/kitty/$f"
 done
 session="$HOME/.config/kitty/last-session.kitty-session"
@@ -84,10 +84,14 @@ elif [[ ! -e $session ]]; then
 fi
 
 echo; echo "== Commands (~/.local/bin)"
-for f in ct ct-config ckt-apply ckt-claude-tab claude-panel claude-restore; do
+for f in ct ct-config ckt-apply ckt-claude-tab ckt-open ckt-files claude-panel claude-restore; do
   link "$REPO/bin/$f" "$HOME/.local/bin/$f"
 done
 case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) warn "~/.local/bin isn't on your PATH; add it in ~/.zshrc";; esac
+
+echo; echo "== File manager (~/.config/yazi)"
+link "$REPO/yazi/yazi.toml" "$HOME/.config/yazi/yazi.toml"
+command -v yazi >/dev/null || warn "yazi isn't installed: the file manager (Ctrl+Alt+E, ct files) needs it (bootstrap.sh installs it)"
 
 echo; echo "== Claude Code (~/.claude)"
 link "$REPO/claude/statusline.sh" "$HOME/.claude/statusline.sh"

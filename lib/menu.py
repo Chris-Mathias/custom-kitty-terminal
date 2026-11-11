@@ -59,7 +59,7 @@ def _tree() -> Node:
     behavior = Node("group", "menu.group.behavior", children=(
         _choice(("reopen_tabs",)), _choice(("confirm_close",)), _choice(("kitty_ctrl_keys",)),
         _choice(("scrollback",)), _choice(("bell",)),
-        _choice(("tab_close_buttons",)), _choice(("panel_close_buttons",)),
+        _choice(("tab_close_buttons",)), _choice(("panel_close_buttons",)), _choice(("editor",)),
     ))
     shortcut_rows = tuple(Node("shortcut", a.label_key, (a.id,), children=(
         Node("record", "menu.shortcut.record", (a.id,)), Node("reset", "menu.shortcut.reset", (a.id,)),

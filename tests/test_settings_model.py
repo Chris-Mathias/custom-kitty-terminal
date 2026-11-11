@@ -42,7 +42,9 @@ class SettingsModelTest(unittest.TestCase):
         self.assertEqual(d["response_style"], {"enabled": False, "language": "pt", "length": "short", "previous": None})
         self.assertEqual(d["spinner"], "ours")
         self.assertEqual(d["status_line"], {k: True for k in ckt.STATUS_ITEMS})
-        self.assertEqual(d["panel"], {"sections": ["sessions", "agents", "tasks", "git", "files"], "auto_open": True})
+        every = ["sessions", "agents", "tasks", "git", "files", "images"]
+        self.assertEqual(d["panel"], {"sections": every, "auto_open": True, "known": every})
+        self.assertEqual(d["editor"], "auto")
         self.assertIs(d["subagent_rows"], True)
         self.assertIs(d["tab_close_buttons"], False)
         self.assertIs(d["panel_close_buttons"], False)
@@ -84,9 +86,24 @@ class SettingsModelTest(unittest.TestCase):
         self.assertIsNone(s["response_style"]["previous"])
 
     def test_panel_sections_validated(self):
-        self.assertEqual(self.load({"panel": {"sections": ["git", "nope", "git"]}})["panel"]["sections"], ["git"])
-        self.assertEqual(self.load({"panel": {"sections": []}})["panel"]["sections"], [])
+        known = list(ckt.PANEL_SECTIONS)
+        self.assertEqual(self.load({"panel": {"sections": ["git", "nope", "git"], "known": known}})["panel"]["sections"],
+                         ["git"])
+        self.assertEqual(self.load({"panel": {"sections": [], "known": known}})["panel"]["sections"], [])
         self.assertEqual(self.load({"panel": {"sections": "git"}})["panel"]["sections"], list(ckt.PANEL_SECTIONS))
+
+    def test_new_panel_section_shows_for_older_settings(self):
+        # Saved before "images" existed (no "known"): the new section is added at the end.
+        s = self.load({"panel": {"sections": ["git", "sessions"]}})
+        self.assertEqual(s["panel"]["sections"], ["git", "sessions", "images"])
+        self.assertEqual(s["panel"]["known"], list(ckt.PANEL_SECTIONS))
+        # Turned off after that: stays off.
+        s = self.load({"panel": {"sections": ["git"], "known": list(ckt.PANEL_SECTIONS)}})
+        self.assertEqual(s["panel"]["sections"], ["git"])
+
+    def test_editor_validated(self):
+        self.assertEqual(self.load({"editor": "zed"})["editor"], "zed")
+        self.assertEqual(self.load({"editor": "emacs"})["editor"], "auto")
 
     def test_previous_style_string_kept(self):
         s = self.load({"response_style": {"previous": "Explanatory"}})

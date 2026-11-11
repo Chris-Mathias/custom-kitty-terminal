@@ -29,7 +29,7 @@
   "cli.program": "program",
   "cli.already_open": "That Claude conversation is already open in another window. To open a new one: claude-panel",
   "cli.open_in_kitty_or_tmux": "ct: run it inside kitty or tmux",
-  "cli.ct_help": "Usage: ct [-a|--here] [folder] [-- claude arguments]\n       ct config\n\n  ct                  new Claude Code session (with the side panel) in a new tab\n  ct ~/projects/app   same, in that folder\n  ct -a [folder]      in the same tab, stacked (switch with the side panel)\n  ct . -- --continue  pass arguments to claude\n  ct config           settings menu: language, theme, font, font size\n  ct ./config         a folder literally named \"config\"",
+  "cli.ct_help": "Usage: ct [-a|--here] [folder] [-- claude arguments]\n       ct files [folder]\n       ct config\n\n  ct                  new Claude Code session (with the side panel) in a new tab\n  ct ~/projects/app   same, in that folder\n  ct -a [folder]      in the same tab, stacked (switch with the side panel)\n  ct . -- --continue  pass arguments to claude\n  ct files [folder]   file manager (yazi), with image previews\n  ct config           settings menu: language, theme, font, font size\n  ct ./config         a folder literally named \"config\"",
   "panel.title": "Session",
   "panel.sessions": "SESSIONS",
   "panel.git": "GIT",
@@ -173,5 +173,18 @@
   "panel.no_such_agent": "No subagent with that number.",
   "value.title_bar.system": "The system's",
   "menu.item.tab_close_buttons": "Close button on tabs",
-  "menu.item.panel_close_buttons": "Close button on panel sessions"
+  "menu.item.panel_close_buttons": "Close button on panel sessions",
+  "shortcut.file_manager": "File manager",
+  "menu.item.editor": "Editor (Ctrl+click and the panel)",
+  "value.editor.auto": "Automatic (VS Code, Zed, Sublime, then the desktop's app)",
+  "value.editor.vscode": "VS Code",
+  "value.editor.zed": "Zed",
+  "value.editor.sublime": "Sublime Text",
+  "value.editor.system": "The desktop's default app",
+  "value.editor.terminal": "Terminal editor ($EDITOR)",
+  "menu.item.panel.images": "Pasted images",
+  "panel.images": "IMAGES",
+  "panel.no_images": "none pasted",
+  "files.missing": "yazi, the file manager, isn't installed.\nInstall it with the one-command install (bootstrap.sh), or see https://yazi-rs.github.io",
+  "files.press_key": "Press any key to close"
 }

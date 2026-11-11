@@ -101,14 +101,14 @@ class MenuTest(unittest.TestCase):
         for _ in range(4):
             m.key("up")
         self.assertEqual(m.key("enter"), "apply")  # drops it first
-        self.assertEqual(m.settings["panel"]["sections"], ["files", "sessions", "agents", "tasks", "git"])
+        self.assertEqual(m.settings["panel"]["sections"], ["files", "sessions", "agents", "tasks", "git", "images"])
 
     def test_panel_section_visibility(self):
         m = menu()
         self.assertEqual(go(m, "Claude Code", "Side panel", "Git", "Off"), "apply")
-        self.assertEqual(m.settings["panel"]["sections"], ["sessions", "agents", "tasks", "files"])
+        self.assertEqual(m.settings["panel"]["sections"], ["sessions", "agents", "tasks", "files", "images"])
         self.assertEqual(go(m, "Git", "On"), "apply")
-        self.assertEqual(m.settings["panel"]["sections"], ["sessions", "agents", "tasks", "files", "git"])
+        self.assertEqual(m.settings["panel"]["sections"], ["sessions", "agents", "tasks", "files", "images", "git"])
 
     def test_shortcut_capture(self):
         m = menu()

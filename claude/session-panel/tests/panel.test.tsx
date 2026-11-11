@@ -49,9 +49,14 @@ type Api = Parameters<Parameters<typeof test>[1]>[0]
 async function mountPanel(
   $: Api,
   on: On,
-  files: Record<string, string>,
+  files: Record<string, unknown>,
   status = STATUS,
-  opts: { skipCommand?: boolean; agents?: unknown[]; view?: { agentId?: string } } = {},
+  opts: {
+    skipCommand?: boolean
+    agents?: unknown[]
+    view?: { agentId?: string }
+    lists?: Record<string, { name: string; kind: string }[]>
+  } = {},
 ) {
   const opened: unknown[] = []
   const views: unknown[] = []
@@ -69,14 +74,19 @@ async function mountPanel(
     const text = files[e.path]
     return text === undefined ? { deny: 'ENOENT: missing' } : { value: text }
   })
-  on('fs.list', () => ({ value: [] }))
+  on('fs.list', (_, e) => ({ value: opts.lists?.[(e as { path: string }).path] ?? [] }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/proj' }))
   on('session.id', () => ({ value: 'aaa' }))
   const tmuxCalls: string[][] = []
+  const opens: string[] = []
   on('process.run', (_, e) => {
     const argv = (e as { argv: string[] }).argv
     if ((argv[0] === 'tmux' || argv[0] === 'kitten') && !argv.includes('ls')) tmuxCalls.push([...argv])
+    if (argv[0] === 'sh' && argv.includes('ckt-open')) {
+      opens.push(argv[argv.length - 1]!)
+      return { value: { exitCode: 0, stdout: '', stderr: '' } }
+    }
     const stdout = argv.includes('agents')
       ? AGENTS
       : argv[0] === 'sh' && argv.includes('panes')
@@ -112,11 +122,11 @@ async function mountPanel(
   await $.tool.call({ tool: 'Read', file_path: '/proj/Cargo.toml' })
   await $.tool.call({ tool: 'Edit', file_path: '/proj/src/main.rs', old_string: 'a', new_string: 'b' })
 
-  if (opts.skipCommand) return { ui: undefined as never, text: undefined as never, tmuxCalls, opened, views }
+  if (opts.skipCommand) return { ui: undefined as never, text: undefined as never, tmuxCalls, opened, views, opens }
   await $.command.run({ command: 'panel' })
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, view: opts.view ?? {} } })
   const text = async (re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
-  return { ui, text, tmuxCalls, opened, views }
+  return { ui, text, tmuxCalls, opened, views, opens }
 }
 
 test('the panel shows sessions, git, tasks and files', async ($, on) => {
@@ -293,5 +303,33 @@ test('with confirmation set to never, the x closes the session right away', asyn
 test('the x is not drawn when the option is off', async ($, on) => {
   const { ui } = await mountPanel($, on, { [SETTINGS]: '{"language":"en"}', '/repo/i18n/en.json': EN })
   expect(await ui.find({ type: 'Button', key: 'close-bbb' })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('clicking a file (FILES or GIT) opens it in the editor through ckt-open', async ($, on) => {
+  const { ui, opens } = await mountPanel($, on, { [SETTINGS]: '{"language":"en"}', '/repo/i18n/en.json': EN })
+  await ui.press({ key: 'file-Cargo.toml' })
+  await ui.press({ key: 'git-src/main.rs' })
+  expect(opens).toEqual(['/proj/Cargo.toml', '/proj/src/main.rs'])
+  await ui.unmount()
+})
+
+test('images pasted earlier in the session show with their number', async ($, on) => {
+  // A PNG header that says 800 x 400.
+  const png = btoa(
+    String.fromCharCode(0x89, 0x50, 0x4e, 0x47, 13, 10, 26, 10, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 3, 0x20, 0, 0, 1, 0x90),
+  )
+  const dir = '/home/teste/.cache/custom-kitty-terminal/images/aaa'
+  const { ui, text, opens } = await mountPanel(
+    $,
+    on,
+    { [SETTINGS]: '{"language":"en"}', '/repo/i18n/en.json': EN, [`${dir}/3.png`]: { base64: png } },
+    STATUS,
+    { lists: { [dir]: [{ name: '3.png', kind: 'file' }, { name: 'notes.txt', kind: 'file' }] } },
+  )
+  expect(await text(/^IMAGES/)).toBe('IMAGES')
+  expect(await text(/Image #3/)).toBe('[Image #3]')
+  await ui.press({ key: 'img-open-3' })
+  expect(opens).toEqual([`${dir}/3.png`])
   await ui.unmount()
 })

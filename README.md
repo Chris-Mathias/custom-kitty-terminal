@@ -10,7 +10,9 @@ A [kitty](https://sw.kovidgoyal.net/kitty/) and [Claude Code](https://code.claud
 - **Several Claude sessions in the same tab**, stacked, switched from the side panel.
 - **Close with confirmation** only when something is running, in its own dialog.
 - **Claude Code**: one-line status line (project, worktree, model, context and 5h/weekly limits), subagent lines with each one's branch/worktree, themed colors and spinner verbs in your language. Claude's response style is left as you set it.
-- **Side panel** (`session-panel` mod): open sessions, running subagents, tasks, git (with worktrees) and files touched. Click a subagent (or press its number with the panel focused, or type `/agent 2`, `/agent next`, `/agent prev`, `/agent main`) to see its conversation; `0` or `/agent main` goes back.
+- **Ctrl+click opens it**: a file path anywhere in the terminal (Claude's output too) opens in your editor at its line, `[Image #3]` opens the image you pasted into Claude, a URL opens in the browser.
+- **File manager** ([yazi](https://yazi-rs.github.io)) on `Ctrl+Alt+E` or `ct files`, with image previews right in kitty; files open in your editor.
+- **Side panel** (`session-panel` mod): open sessions, running subagents, tasks, git (with worktrees), files touched and the images you pasted (as thumbnails). Click a file (in git or files) to open it in your editor, an image to open it in the image viewer. Click a subagent (or press its number with the panel focused, or type `/agent 2`, `/agent next`, `/agent prev`, `/agent main`) to see its conversation; `0` or `/agent main` goes back.
 
 ## Install
 
@@ -20,7 +22,7 @@ One command, which also updates an existing install:
 curl -fsSL https://raw.githubusercontent.com/Chris-Mathias/custom-kitty-terminal/main/bootstrap.sh | bash
 ```
 
-It installs what is missing with your package manager (dnf, apt, pacman or zypper): kitty, jq, git, python3 and the Adwaita Mono and Symbola fonts. kitty must be 0.46 or newer; when the distribution's is older (Debian, Ubuntu and Mint) or missing, the official kitty build is installed in `~/.local/kitty.app` instead. It asks whether to install Claude Code and whether to make kitty your default terminal, clones the repository into `~/.local/share/custom-kitty-terminal` (`CKT_DIR` changes it) and runs `install.sh`. zsh is installed only with `--zsh` (or when you say yes to it), set up like the author's: oh-my-zsh with the `bira` theme and the `git`, `zsh-autosuggestions` and `zsh-syntax-highlighting` plugins. An existing `~/.zshrc` is never replaced, only completed; `--no-oh-my-zsh` gives a plain zsh. `--yes` takes the defaults without asking. Font packages that a distribution doesn't have are skipped with a note. Without Claude Code everything kitty-side still works; the side panel, the status line and the Claude shortcuts need it.
+It installs what is missing with your package manager (dnf, apt, pacman or zypper): kitty, jq, git, python3 and the Adwaita Mono and Symbola fonts, plus yazi (from the distribution, or its official build in `~/.local/bin`). kitty must be 0.46 or newer; when the distribution's is older (Debian, Ubuntu and Mint) or missing, the official kitty build is installed in `~/.local/kitty.app` instead. It asks whether to install Claude Code and whether to make kitty your default terminal, clones the repository into `~/.local/share/custom-kitty-terminal` (`CKT_DIR` changes it) and runs `install.sh`. zsh is installed only with `--zsh` (or when you say yes to it), set up like the author's: oh-my-zsh with the `bira` theme and the `git`, `zsh-autosuggestions` and `zsh-syntax-highlighting` plugins. An existing `~/.zshrc` is never replaced, only completed; `--no-oh-my-zsh` gives a plain zsh. `--yes` takes the defaults without asking. Font packages that a distribution doesn't have are skipped with a note. Without Claude Code everything kitty-side still works; the side panel, the status line and the Claude shortcuts need it.
 
 ### By hand
 
@@ -56,7 +58,7 @@ Upgrading from the older Portuguese version of this repo: just run `./install.sh
 |---|---|
 | Appearance | theme, font, font size, line height, padding, tab style (slanted, round, angled, separators), tab bar on top or bottom, transparency, cursor shape and blink, title bar (the system's, kitty's own, none — needs a kitty restart), ligatures |
 | Claude Code | response style (off by default; when on: response language and length — short, balanced, detailed), status line items, the subagent list below the prompt (shown or hidden — the subagents are also in the side panel), side panel sections (sessions, subagents, tasks, git, files), their order and whether it opens by itself, phrases while thinking (ours or Claude's) |
-| Behavior | reopen tabs on start, confirm before closing (only if something runs, always, never), whether kitty keeps `Ctrl+W`/`Ctrl+N`, scrollback lines, bell, a close button (×) on each tab, a close button (×) on each session in the side panel (both off by default; they ask before closing like `Ctrl+W`) |
+| Behavior | reopen tabs on start, confirm before closing (only if something runs, always, never), whether kitty keeps `Ctrl+W`/`Ctrl+N`, scrollback lines, bell, the editor that Ctrl+click and the panel open files in (automatic: VS Code, Zed, Sublime Text, then the desktop's app; or one of them, the desktop's default app, or your terminal `$EDITOR`), a close button (×) on each tab, a close button (×) on each session in the side panel (both off by default; they ask before closing like `Ctrl+W`) |
 | Shortcuts | every shortcut in the table below: pick one, choose "Record new keys" and press the combination. If it's already used (by this project or by kitty), the menu asks before swapping. "Reset to default" and "Reset all" undo changes. |
 
 The response style is never touched unless you turn it on. When you do, the menu writes one style file (`~/.claude/output-styles/custom-kitty-terminal.md`) and remembers the style you had before; turning it off puts that one back.
@@ -79,6 +81,8 @@ The defaults (change any of them in Settings → Shortcuts):
 | `Alt+1…6`, `Alt+←/→` | Switch tabs |
 | `Ctrl+Shift+Enter` / `Ctrl+Shift+-` | Split the screen side by side / top and bottom |
 | `Ctrl+Shift+H` | Whole scrollback with search |
+| `Ctrl+Alt+E` | File manager (yazi) in the current folder; `q` closes it |
+| `Ctrl+click` | Opens the file path, `[Image #N]` or URL under the mouse |
 | `Ctrl+Shift+F2` | Settings menu |
 | `Ctrl+Shift+F5` | Reload the configuration |
 
@@ -91,6 +95,8 @@ The defaults (change any of them in Settings → Shortcuts):
 - `ct [folder] -- -w name`: passes arguments to `claude` (here, a new worktree called "name").
 - `ct config`: settings menu. For a folder literally named `config`, use `ct ./config`.
 - `claude-panel`: runs Claude with the panel in the current tab.
+- `ct files [folder]`: the file manager (yazi), with image previews.
+- `ckt-open file[:line]`: opens files the way Ctrl+click does (your editor; images in the image viewer).
 
 ## Files
 
@@ -98,9 +104,13 @@ The defaults (change any of them in Settings → Shortcuts):
 bootstrap.sh  one-command install/update (packages, Claude Code, zsh, default terminal)
 install.sh    links everything into place and applies your settings
 kitty/      kitty.conf, tabs.conf (tab style), tab_bar.py (tabs + ⚙ button),
-            close_tab.py + close-tab-dialog.sh (Ctrl+W), save_session.py (reopen tabs)
-bin/        ct, ct-config (settings menu), ckt-apply, claude-panel, claude-restore
-lib/        ckt.py / ckt.sh (settings, translations, themes), menu.py, shortcuts.py
+            close_tab.py + close-tab-dialog.sh (Ctrl+W), save_session.py (reopen tabs),
+            open_under_mouse.py (Ctrl+click)
+bin/        ct, ct-config (settings menu), ckt-apply, ckt-claude-tab, ckt-open, ckt-files,
+            claude-panel, claude-restore
+lib/        ckt.py / ckt.sh (settings, translations, themes), menu.py, shortcuts.py,
+            openpath.py (what a click points at, and which editor opens it)
+yazi/       yazi.toml (the file manager: opens files with ckt-open)
 i18n/       en.json, pt.json: every text shown to you
 themes/     <theme>/kitty.conf, claude.json, palette.json
 claude/     statusline.sh, subagent-statusline.sh,
@@ -108,7 +118,7 @@ claude/     statusline.sh, subagent-statusline.sh,
 tests/      python3 -m unittest discover -s tests; claude plugin test claude/session-panel
 ```
 
-The list of saved tabs (`~/.config/kitty/last-session.kitty-session`) and the files the settings menu writes (`~/.config/kitty/generated/`: theme, font, appearance, behavior, shortcuts) belong to each computer and stay out of the repository.
+Pasted images are kept in `~/.cache/custom-kitty-terminal/images/<session>/` for two weeks. The list of saved tabs (`~/.config/kitty/last-session.kitty-session`) and the files the settings menu writes (`~/.config/kitty/generated/`: theme, font, appearance, behavior, shortcuts) belong to each computer and stay out of the repository.
 
 ## Notes
 

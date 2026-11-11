@@ -32,6 +32,7 @@ TODAY = {
     'map alt+down next_window',
     'map ctrl+alt+z toggle_layout stack',
     'map ctrl+shift+f2 launch --type=overlay sh -c \'exec "$HOME/.local/bin/ct-config"\'',
+    'map ctrl+alt+e launch --type=overlay --cwd=oldest sh -c \'exec "$HOME/.local/bin/ckt-files"\'',
     'map ctrl+shift+enter launch --cwd=oldest --location=vsplit',
     'map ctrl+shift+minus launch --cwd=oldest --location=hsplit',
 }

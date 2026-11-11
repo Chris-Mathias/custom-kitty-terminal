@@ -102,6 +102,9 @@ class BootstrapTest(unittest.TestCase):
             self.assertIn(pkg, calls)
         self.assertIn("curl -fsSL https://claude.ai/install.sh", calls)
         self.assertIn("claude-installer-ran", calls)
+        # yazi: the distribution first, then the official build from GitHub
+        self.assertIn("dnf install -y yazi", calls)
+        self.assertIn("github.com/sxyazi/yazi/releases/latest/download/yazi-", calls)
         target = self.home / ".local/share/custom-kitty-terminal"
         self.assertIn(f"git clone https://example.invalid/ckt.git {target}", calls)
         self.assertEqual(Path(os.path.realpath(self.home / ".config/kitty/kitty.conf")), target / "kitty/kitty.conf")

@@ -29,7 +29,7 @@
   "cli.program": "programa",
   "cli.already_open": "Essa conversa do Claude já está aberta em outra janela. Para abrir uma nova: claude-panel",
   "cli.open_in_kitty_or_tmux": "ct: abra dentro do kitty ou do tmux",
-  "cli.ct_help": "Uso: ct [-a|--here] [pasta] [-- argumentos do claude]\n       ct config\n\n  ct                  sessão nova do Claude Code (com o painel lateral) numa aba nova\n  ct ~/projetos/app   o mesmo, nessa pasta\n  ct -a [pasta]       na mesma aba, empilhada (troque pelo painel lateral)\n  ct . -- --continue  passa argumentos para o claude\n  ct config           menu de configurações: idioma, tema, fonte, tamanho da fonte\n  ct ./config         uma pasta chamada literalmente \"config\"",
+  "cli.ct_help": "Uso: ct [-a|--here] [pasta] [-- argumentos do claude]\n       ct files [pasta]\n       ct config\n\n  ct                  sessão nova do Claude Code (com o painel lateral) numa aba nova\n  ct ~/projetos/app   o mesmo, nessa pasta\n  ct -a [pasta]       na mesma aba, empilhada (troque pelo painel lateral)\n  ct . -- --continue  passa argumentos para o claude\n  ct files [pasta]    gerenciador de arquivos (yazi), com prévia de imagens\n  ct config           menu de configurações: idioma, tema, fonte, tamanho da fonte\n  ct ./config         uma pasta chamada literalmente \"config\"",
   "panel.title": "Sessão",
   "panel.sessions": "SESSÕES",
   "panel.git": "GIT",
@@ -173,5 +173,18 @@
   "panel.no_such_agent": "Nenhum subagente com esse número.",
   "value.title_bar.system": "A do sistema",
   "menu.item.tab_close_buttons": "Botão de fechar nas abas",
-  "menu.item.panel_close_buttons": "Botão de fechar nas sessões do painel"
+  "menu.item.panel_close_buttons": "Botão de fechar nas sessões do painel",
+  "shortcut.file_manager": "Gerenciador de arquivos",
+  "menu.item.editor": "Editor (Ctrl+clique e o painel)",
+  "value.editor.auto": "Automático (VS Code, Zed, Sublime e depois o app do sistema)",
+  "value.editor.vscode": "VS Code",
+  "value.editor.zed": "Zed",
+  "value.editor.sublime": "Sublime Text",
+  "value.editor.system": "App padrão do sistema",
+  "value.editor.terminal": "Editor do terminal ($EDITOR)",
+  "menu.item.panel.images": "Imagens coladas",
+  "panel.images": "IMAGENS",
+  "panel.no_images": "nenhuma colada",
+  "files.missing": "O yazi, o gerenciador de arquivos, não está instalado.\nInstale pelo comando de instalação (bootstrap.sh) ou veja https://yazi-rs.github.io",
+  "files.press_key": "Aperte qualquer tecla para fechar"
 }

@@ -75,6 +75,10 @@ class InstallTest(unittest.TestCase):
             (".claude/statusline.sh", "claude/statusline.sh"),
             (".claude/themes/dracula.json", "themes/dracula/claude.json"),
             (".local/share/claude-mods/session-panel", "claude/session-panel"),
+            (".config/kitty/open_under_mouse.py", "kitty/open_under_mouse.py"),
+            (".local/bin/ckt-open", "bin/ckt-open"),
+            (".local/bin/ckt-files", "bin/ckt-files"),
+            (".config/yazi/yazi.toml", "yazi/yazi.toml"),
         ]:
             with self.subTest(rel=rel):
                 self.assertEqual(Path(os.path.realpath(self.p(rel))), REPO / target)

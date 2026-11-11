@@ -66,13 +66,13 @@ class MenuTuiTest(unittest.TestCase):
 
     def test_order_editor_moves_a_section(self):
         # Claude Code → Side panel → Order: pick Sessions up, move it down once, drop.
-        keys = [DOWN, ENTER, DOWN, DOWN, DOWN, ENTER] + [DOWN] * 5 + [ENTER, ENTER, DOWN, ENTER, b"q"]
+        keys = [DOWN, ENTER, DOWN, DOWN, DOWN, ENTER] + [DOWN] * 6 + [ENTER, ENTER, DOWN, ENTER, b"q"]
         settings, _ = self.run_menu(keys)
-        self.assertEqual(settings["panel"]["sections"], ["agents", "sessions", "tasks", "git", "files"])
+        self.assertEqual(settings["panel"]["sections"], ["agents", "sessions", "tasks", "git", "files", "images"])
 
     def test_record_a_shortcut(self):
-        # Shortcuts → Settings menu (21st row) → Record new keys → Ctrl+Alt+Y
-        keys = [DOWN] * 3 + [ENTER] + [DOWN] * 20 + [ENTER, ENTER, b"\x1b[121;7u", b"q"]
+        # Shortcuts → Settings menu (22nd row) → Record new keys → Ctrl+Alt+Y
+        keys = [DOWN] * 3 + [ENTER] + [DOWN] * 21 + [ENTER, ENTER, b"\x1b[121;7u", b"q"]
         settings, screen = self.run_menu(keys)
         self.assertEqual(settings["shortcuts"], {"settings": "ctrl+alt+y"})
         self.assertIn("\x1b[>1u", screen)  # asked kitty for modifier key codes

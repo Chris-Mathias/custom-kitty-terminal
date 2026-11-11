@@ -8,6 +8,7 @@
 # Inside kitty it uses kitty tabs/windows; inside tmux, tmux windows;
 # outside both, it opens a kitty window.
 #   ct config              -> settings menu (language, theme, font, font size)
+#   ct files [folder]      -> file manager (yazi), with image previews
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/ckt.sh"
 
@@ -21,6 +22,14 @@ case ${1:-} in
       exec kitten @ launch --type=overlay --title="$(ckt_t menu.title)" "$menu" "$@" >/dev/null
     fi
     exec "$menu" "$@" ;;
+  files)
+    shift
+    files="$HOME/.local/bin/ckt-files"
+    # Inside kitty: as an overlay on the current window (q closes it); elsewhere: right here.
+    if [[ -n ${KITTY_WINDOW_ID:-} ]] && command -v kitten >/dev/null; then
+      exec kitten @ launch --type=overlay --cwd="$PWD" "$files" "$@" >/dev/null
+    fi
+    exec "$files" "$@" ;;
 esac
 
 same_tab=0

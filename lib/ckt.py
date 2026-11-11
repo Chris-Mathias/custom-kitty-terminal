@@ -15,7 +15,10 @@ REPO = Path(__file__).resolve().parent.parent
 LANGUAGES = ("en", "pt", "zh")
 THEMES = ("fedora", "catppuccin", "tokyo-night", "dracula", "gruvbox", "light", "noctalia")
 FONT_SIZES = range(8, 25)
-PANEL_SECTIONS = ("sessions", "agents", "tasks", "git", "files")
+PANEL_SECTIONS = ("sessions", "agents", "tasks", "git", "files", "images")
+# Sections that existed before settings.json recorded "known": a section added later
+# shows up for people who already had a saved order, instead of staying hidden.
+PANEL_SECTIONS_V1 = ("sessions", "agents", "tasks", "git", "files")
 STATUS_ITEMS = ("context", "five_hour", "weekly", "resets", "model", "worktree")
 
 # Every scalar setting and the values it may take (the first tuple entries are
@@ -42,6 +45,7 @@ CHOICES = {
     "bell": (False, True),
     "tab_close_buttons": (False, True),
     "panel_close_buttons": (False, True),
+    "editor": ("auto", "vscode", "zed", "sublime", "system", "terminal"),
 }
 RESPONSE_LENGTHS = ("short", "balanced", "detailed")
 
@@ -53,9 +57,10 @@ DEFAULTS = {
     "spinner": "ours",
     "subagent_rows": True,
     "status_line": {k: True for k in STATUS_ITEMS},
-    "panel": {"sections": list(PANEL_SECTIONS), "auto_open": True},
+    "panel": {"sections": list(PANEL_SECTIONS), "auto_open": True, "known": list(PANEL_SECTIONS)},
     "reopen_tabs": True, "confirm_close": "running", "kitty_ctrl_keys": True, "scrollback": 20000, "bell": False,
     "tab_close_buttons": False, "panel_close_buttons": False,
+    "editor": "auto",
     "shortcuts": {},
 }
 
@@ -98,8 +103,11 @@ def _nested(key: str, value):
                     seen.append(name)
         else:
             seen = list(PANEL_SECTIONS)
+        known = value.get("known")
+        known = [k for k in known if isinstance(k, str)] if isinstance(known, list) else list(PANEL_SECTIONS_V1)
+        seen += [name for name in PANEL_SECTIONS if name not in known and name not in seen]
         auto = value.get("auto_open")
-        return {"sections": seen, "auto_open": auto if isinstance(auto, bool) else True}
+        return {"sections": seen, "auto_open": auto if isinstance(auto, bool) else True, "known": list(PANEL_SECTIONS)}
     if key == "response_style":
         rs = dict(default)
         if isinstance(value.get("enabled"), bool):

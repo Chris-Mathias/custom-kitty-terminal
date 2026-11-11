@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""ckt-open: opens files in your editor (images in the image viewer).
+
+    ckt-open src/main.rs:42        file at line 42
+    ckt-open a.py b.rs             several files
+    ckt-open --line 42 src/main.rs
+
+The editor is the one chosen in ct config → Behavior → Editor ("auto" takes
+VS Code, then Zed, then Sublime Text, then the desktop's default app). The side
+panel, kitty's Ctrl+click and the file manager (yazi) all open files through it.
+"""
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+
+import ckt  # noqa: E402
+import openpath as op  # noqa: E402
+
+
+def main(argv: list[str]) -> int:
+    line = None
+    if len(argv) >= 2 and argv[0] == "--line" and argv[1].isdigit():
+        line, argv = int(argv[0 + 1]), argv[2:]
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return 0 if argv else 2
+    choice = ckt.load_settings()["editor"]
+    socket = os.environ.get("KITTY_LISTEN_ON")
+    status = 0
+    for arg in argv:
+        path, at = arg, line
+        if not os.path.exists(path):
+            target = op.target_at(arg, 0)
+            if target and target.kind == "path":
+                path, at = target.value, target.line or line
+        path = os.path.abspath(os.path.expanduser(path))
+        if not os.path.exists(path):
+            print(f"ckt-open: {arg}: not found", file=sys.stderr)
+            status = 1
+            continue
+        op.open_target(path, at, choice, socket)
+    return status
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

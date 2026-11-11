@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# ckt-files [folder]: the file manager (yazi), with image previews in kitty.
+# Opened by Ctrl+Alt+E in kitty and by `ct files`. Files open with ckt-open
+# (your editor; images in the image viewer), set in ~/.config/yazi/yazi.toml.
+export PATH="$HOME/.local/bin:$PATH"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/ckt.sh"
+
+dir="${1:-$PWD}"
+if command -v yazi >/dev/null; then
+  exec yazi "$dir"
+fi
+printf '%s\n\n' "$(ckt_t files.missing)"
+read -rsn1 -p "$(ckt_t files.press_key)" _
+echo

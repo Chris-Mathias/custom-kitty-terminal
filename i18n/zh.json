@@ -29,7 +29,7 @@
   "cli.program": "程序",
   "cli.already_open": "该 Claude 对话已在另一个窗口中打开。要打开新的对话：claude-panel",
   "cli.open_in_kitty_or_tmux": "ct：请在 kitty 或 tmux 中运行",
-  "cli.ct_help": "用法：ct [-a|--here] [文件夹] [-- claude 参数]\n       ct config\n\n  ct                  在新标签页中开启新的 Claude Code 会话（带侧边栏）\n  ct ~/projects/app   同上，在该文件夹中\n  ct -a [文件夹]      在当前标签页中堆叠打开（通过侧边栏切换）\n  ct . -- --continue  向 claude 传递参数\n  ct config           设置菜单：语言、主题、字体、字号\n  ct ./config         名为 config 的文件夹",
+  "cli.ct_help": "用法：ct [-a|--here] [文件夹] [-- claude 参数]\n       ct files [文件夹]\n       ct config\n\n  ct                  在新标签页中开启新的 Claude Code 会话（带侧边栏）\n  ct ~/projects/app   同上，在该文件夹中\n  ct -a [文件夹]      在当前标签页中堆叠打开（通过侧边栏切换）\n  ct . -- --continue  向 claude 传递参数\n  ct files [文件夹]   文件管理器（yazi），可预览图片\n  ct config           设置菜单：语言、主题、字体、字号\n  ct ./config         名为 config 的文件夹",
   "panel.title": "会话",
   "panel.sessions": "会话",
   "panel.git": "GIT",
@@ -173,5 +173,18 @@
   "panel.no_such_agent": "没有该编号的子代理。",
   "value.title_bar.system": "系统自带",
   "menu.item.tab_close_buttons": "标签页上的关闭按钮",
-  "menu.item.panel_close_buttons": "侧边栏会话上的关闭按钮"
+  "menu.item.panel_close_buttons": "侧边栏会话上的关闭按钮",
+  "shortcut.file_manager": "文件管理器",
+  "menu.item.editor": "编辑器（Ctrl+点击与侧边栏）",
+  "value.editor.auto": "自动（VS Code、Zed、Sublime，然后是系统默认应用）",
+  "value.editor.vscode": "VS Code",
+  "value.editor.zed": "Zed",
+  "value.editor.sublime": "Sublime Text",
+  "value.editor.system": "系统默认应用",
+  "value.editor.terminal": "终端编辑器（$EDITOR）",
+  "menu.item.panel.images": "粘贴的图片",
+  "panel.images": "图片",
+  "panel.no_images": "尚未粘贴",
+  "files.missing": "未安装文件管理器 yazi。\n请通过一键安装（bootstrap.sh）安装，或参见 https://yazi-rs.github.io",
+  "files.press_key": "按任意键关闭"
 }

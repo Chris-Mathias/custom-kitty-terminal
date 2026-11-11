@@ -42,6 +42,8 @@ ACTIONS: tuple[Action, ...] = (
     Action("next_tab", "alt+right", "next_tab", "shortcut.next_tab"),
     Action("split_right", "ctrl+shift+enter", "launch --cwd=oldest --location=vsplit", "shortcut.split_right"),
     Action("split_below", "ctrl+shift+minus", "launch --cwd=oldest --location=hsplit", "shortcut.split_below"),
+    Action("file_manager", "ctrl+alt+e",
+           "launch --type=overlay --cwd=oldest sh -c 'exec \"$HOME/.local/bin/ckt-files\"'", "shortcut.file_manager"),
     Action("settings", "ctrl+shift+f2", "launch --type=overlay sh -c 'exec \"$HOME/.local/bin/ct-config\"'",
            "shortcut.settings"),
 )

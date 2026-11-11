@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface as Engine, Register } from 'claude-code'
+import type { EngineInterface as Engine, ImageProps, Register } from 'claude-code'
 
-import type { FileTouch, GitInfo, SessionRow, Todo, TodoStatus, TouchKind, Worktree } from '../types'
+import type { FileTouch, GitInfo, PastedImage, SessionRow, Todo, TodoStatus, TouchKind, Worktree } from '../types'
 
 const PANE = 'session-panel'
 // Requested width for the side pane (whatever you drag with the mouse wins).
@@ -41,6 +41,8 @@ const EN = {
   'panel.mark_read': 'R',
   'panel.mark_edited': 'E',
   'panel.mark_created': 'N',
+  'panel.images': 'IMAGES',
+  'panel.no_images': 'none pasted',
 }
 type Strings = typeof EN
 
@@ -56,7 +58,10 @@ async function readJson($: Engine, path: string): Promise<Record<string, unknown
 // ---------- layout ----------
 // Which sections show, in what order, and whether the panel opens by itself
 // (settings menu → Claude Code → Side panel).
-const SECTIONS = ['sessions', 'agents', 'tasks', 'git', 'files'] as const
+const SECTIONS = ['sessions', 'agents', 'tasks', 'git', 'files', 'images'] as const
+// Sections that existed before settings.json recorded "known" (lib/ckt.py does the same):
+// a section added later shows up for people who already had a saved order.
+const SECTIONS_V1: readonly string[] = ['sessions', 'agents', 'tasks', 'git', 'files']
 type Section = (typeof SECTIONS)[number]
 type Layout = { sections: Section[]; autoOpen: boolean; closeButtons: boolean; confirmClose: string }
 const DEFAULT_LAYOUT: Layout = { sections: [...SECTIONS], autoOpen: true, closeButtons: false, confirmClose: 'running' }
@@ -67,12 +72,14 @@ async function readSettings($: Engine): Promise<Record<string, unknown>> {
 }
 
 function layoutOf(settings: Record<string, unknown>): Layout {
-  const panel = (settings.panel ?? {}) as { sections?: unknown; auto_open?: unknown }
+  const panel = (settings.panel ?? {}) as { sections?: unknown; auto_open?: unknown; known?: unknown }
   const sections = Array.isArray(panel.sections)
     ? (panel.sections as unknown[]).filter(
         (x, i, all): x is Section => SECTIONS.includes(x as Section) && all.indexOf(x) === i,
       )
     : [...SECTIONS]
+  const known = Array.isArray(panel.known) ? (panel.known as unknown[]) : SECTIONS_V1
+  for (const name of SECTIONS) if (!known.includes(name) && !sections.includes(name)) sections.push(name)
   return {
     sections,
     autoOpen: typeof panel.auto_open === 'boolean' ? panel.auto_open : true,
@@ -108,8 +115,9 @@ async function refreshStrings($: Engine): Promise<Strings> {
 const textOf = async ($: Engine): Promise<Strings> => ({ ...EN, ...(await read($, strings)) })
 
 const todos = atom({ plugin: 'session-panel', key: 'todos' } as const, [] as Todo[], { shape: 'todos-1' })
-const files = atom({ plugin: 'session-panel', key: 'files' } as const, [] as FileTouch[], { shape: 'files-2' })
-const git = atom({ plugin: 'session-panel', key: 'git' } as const, null as GitInfo | null, { shape: 'git-2' })
+const files = atom({ plugin: 'session-panel', key: 'files' } as const, [] as FileTouch[], { shape: 'files-3' })
+const images = atom({ plugin: 'session-panel', key: 'images' } as const, [] as PastedImage[], { shape: 'images-1' })
+const git = atom({ plugin: 'session-panel', key: 'git' } as const, null as GitInfo | null, { shape: 'git-3' })
 const sessions = atom({ plugin: 'session-panel', key: 'sessions' } as const, null as SessionRow[] | null, {
   shape: 'sessions-4',
 })
@@ -148,7 +156,9 @@ async function readGit($: Engine): Promise<GitInfo> {
       if (/^\d+$/.test(r ?? '')) removed += Number(r)
     }
   }
-  return { isRepo: true, branch, ahead, behind, files: changed, added, removed, worktrees: await readWorktrees($) }
+  const top = await $.process.run(['git', 'rev-parse', '--show-toplevel'], { timeoutMs: 5000 })
+  const root = top.exitCode === 0 ? top.stdout.trim() : undefined
+  return { isRepo: true, branch, ahead, behind, files: changed, added, removed, worktrees: await readWorktrees($), root }
 }
 
 // Worktrees other than the main one (e.g. the subagents' in .claude/worktrees/)
@@ -411,12 +421,97 @@ async function showAgent($: Engine, agentId?: string) {
 // ---------- files and tasks ----------
 async function touch($: Engine, rawPath: string, kind: TouchKind) {
   const cwd = await $.session.cwd()
-  const path = rawPath.startsWith(cwd + '/') ? rawPath.slice(cwd.length + 1) : rawPath
+  const abs = rawPath.startsWith('/') ? rawPath : `${cwd}/${rawPath}`
+  const path = abs.startsWith(cwd + '/') ? abs.slice(cwd.length + 1) : abs
   await update($, files, list => {
     const old = list.find(f => f.path === path)
     const best = old && KIND_RANK[old.kind] > KIND_RANK[kind] ? old.kind : kind
-    return [{ path, kind: best, at: Date.now() }, ...list.filter(f => f.path !== path)].slice(0, 60)
+    return [{ path, abs, kind: best, at: Date.now() }, ...list.filter(f => f.path !== path)].slice(0, 60)
   })
+}
+
+// Clicking a file in the panel opens it in your editor (ckt-open: ct config → Behavior → Editor;
+// images go to the image viewer). The panel can't tell a Ctrl+click from a click, so any click opens.
+async function openFile($: Engine, abs: string) {
+  const run = await $.process.run(['sh', '-c', 'exec "$HOME/.local/bin/ckt-open" "$1"', 'ckt-open', abs], {
+    timeoutMs: 10000,
+  })
+  if (run.exitCode !== 0) $.ui.toast(run.stderr.trim() || `ckt-open: ${abs}`)
+}
+
+// ---------- pasted images ----------
+// Each image pasted into this session is saved (as Claude got it) to
+// ~/.cache/custom-kitty-terminal/images/<session>/<n>.<ext>, n being its [Image #n]:
+// the panel shows the PNGs as thumbnails, kitty's Ctrl+click on [Image #n] opens it,
+// and a resumed session finds its images again. Folders older than two weeks are removed.
+const IMAGE_EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }
+
+async function imageDir($: Engine): Promise<string | undefined> {
+  const home = await $.env.get('HOME')
+  const id = (await $.session.id()).replace(/[^A-Za-z0-9_-]/g, '')
+  return home && id ? `${home}/.cache/custom-kitty-terminal/images/${id}` : undefined
+}
+
+// Width and height from a PNG's header (bytes 16-23 of the IHDR chunk).
+function pngSize(base64: string): { width: number; height: number } | undefined {
+  try {
+    const head = atob(base64.slice(0, 44))
+    if (head.slice(1, 4) !== 'PNG') return undefined
+    const num = (at: number) =>
+      ((head.charCodeAt(at) << 24) | (head.charCodeAt(at + 1) << 16) | (head.charCodeAt(at + 2) << 8) | head.charCodeAt(at + 3)) >>> 0
+    return { width: num(16), height: num(20) }
+  } catch {
+    return undefined
+  }
+}
+
+async function saveImage($: Engine, id: string, n: number): Promise<PastedImage | undefined> {
+  const dir = await imageDir($)
+  if (!dir) return undefined
+  let base64 = ''
+  let mediaType = ''
+  let offset: number | undefined = 0
+  while (offset !== undefined) {
+    const part = await $.prompt.media(offset ? ({ id, offset } as { id: string }) : { id })
+    if (!('base64' in part) || typeof part.base64 !== 'string') return undefined
+    base64 += part.base64
+    mediaType = part.mediaType
+    offset = part.next
+  }
+  const ext = IMAGE_EXT[mediaType] ?? 'img'
+  const file = `${dir}/${n}.${ext}`
+  const run = await $.process.run(['sh', '-c', 'mkdir -p "$(dirname "$1")" && base64 -d > "$1"', 'save', file], {
+    stdin: base64,
+    timeoutMs: 15000,
+  })
+  if (run.exitCode !== 0) return undefined
+  return { n, file, isPng: ext === 'png', ...pngSize(base64) }
+}
+
+// The images saved by this session earlier (a resumed session, or a reload).
+async function loadSavedImages($: Engine) {
+  const dir = await imageDir($)
+  if (!dir) return
+  try {
+    const entries = await $.fs.list(dir)
+    const found: PastedImage[] = []
+    for (const e of entries) {
+      const m = /^(\d+)\.(\w+)$/.exec(e.name)
+      if (!m) continue
+      const file = `${dir}/${e.name}`
+      let size: { width: number; height: number } | undefined
+      if (m[2] === 'png') {
+        const { base64 } = (await $.fs.read(file, { as: 'bytes' })) as unknown as { base64: string }
+        size = pngSize(base64.slice(0, 44))
+      }
+      found.push({ n: Number(m[1]), file, isPng: m[2] === 'png', ...size })
+    }
+    if (found.length) await update($, images, () => found.sort((a, b) => a.n - b.n))
+  } catch {
+    // nothing saved yet
+  }
+  void $.process.run(['sh', '-c', 'find "$1" -mindepth 1 -maxdepth 1 -type d -mtime +14 -exec rm -rf {} +', 'clean',
+    dir.split('/').slice(0, -1).join('/')], { timeoutMs: 10000 }).catch(() => {})
 }
 
 // ---------- drawing ----------
@@ -487,6 +582,7 @@ export const register: Register = on => {
 
     void refreshGit($)
     void refreshSessions($)
+    void loadSavedImages($)
     $.clock.every(15000, () => void refreshGit($))
     // Sessions: the state (busy/idle) is re-read every 4 s; opening or
     // closing a session is noticed in ~1 s by watching the folder where Claude Code
@@ -542,6 +638,32 @@ export const register: Register = on => {
     return {}
   })
 
+  on('prompt.submit', async ($, e, next) => {
+    try {
+      const pasted = (e.attachments ?? []).filter(a => a.type === 'image' && a.id)
+      if (pasted.length) {
+        // The text names them in order: "[Image #3]"; without it, number after the last one.
+        const named = [...e.text.matchAll(/\[Image #(\d+)\]/g)].map(m => Number(m[1]))
+        const known = await read($, images)
+        let last = Math.max(0, ...known.map(i => i.n))
+        const saved: PastedImage[] = []
+        for (const [i, a] of pasted.entries()) {
+          const n = named[i] ?? ++last
+          last = Math.max(last, n)
+          const img = await saveImage($, a.id!, n)
+          if (img) saved.push(img)
+        }
+        if (saved.length)
+          await update($, images, list =>
+            [...list.filter(i => !saved.some(x => x.n === i.n)), ...saved].sort((a, b) => a.n - b.n),
+          )
+      }
+    } catch {
+      // the panel never gets in the way of a prompt
+    }
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
   on('tool.call', async ($, e, next) => {
     const ran = await next(e)
     if (ran.deny !== undefined || ran.isError === true) return ran
@@ -578,13 +700,17 @@ export const register: Register = on => {
   }).catch(($, e, next) => next(e))
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const elements = $.ui.resolve(e)
+    const { Box, Text, Button } = elements
+    // Image exists on the terminal surface (kitty's graphics); elsewhere the alt text shows.
+    const Image = (elements as unknown as { Image?: (props: ImageProps & { key?: string }) => ReturnType<typeof Text> })
+      .Image
     // 1 column of left margin
     const width = Math.max(18, ((e.props as { bodyColumns?: number }).bodyColumns ?? PANE_COLUMNS) - 1)
     viewedAgent = (e.props as { view?: { agentId?: string } }).view?.agentId
     const { closeButtons } = (await read($, layout)) ?? DEFAULT_LAYOUT
-    const [s, g, t, f, S, a] = await Promise.all([
-      read($, sessions), read($, git), read($, todos), read($, files), textOf($), read($, agents),
+    const [s, g, t, f, S, a, im] = await Promise.all([
+      read($, sessions), read($, git), read($, todos), read($, files), textOf($), read($, agents), read($, images),
     ])
     const branchName = (b: string) => (b === DETACHED ? S['panel.detached_head'] : b)
     const TOUCH_MARK: Record<TouchKind, string> = {
@@ -726,12 +852,23 @@ export const register: Register = on => {
             <Text color="error">−{g.removed}</Text>
           </Text>
         )}
-        {g.files.map(file => (
-          <Text>
-            <Text color={GIT_COLOR(file.status)}>{file.status.padEnd(2)}</Text> {fileLabel(file.path, width - 3).base}
-            {fileLabel(file.path, width - 3).dir && <Text dimColor> {fileLabel(file.path, width - 3).dir}</Text>}
-          </Text>
-        ))}
+        {g.files.map(file => {
+          const label = fileLabel(file.path, width - 3)
+          const row = (
+            <Text>
+              <Text color={GIT_COLOR(file.status)}>{file.status.padEnd(2)}</Text> {label.base}
+              {label.dir && <Text dimColor> {label.dir}</Text>}
+            </Text>
+          )
+          // Deleted files have nothing to open.
+          if (!g.root || file.status.includes('D')) return row
+          const abs = `${g.root}/${file.path.replace(/^.* -> /, '')}`
+          return (
+            <Button key={`git-${file.path}`} plain onPress={() => void openFile($, abs)}>
+              {row}
+            </Button>
+          )
+        })}
         {g.worktrees.map(wt => (
           <Text>
             <Text color="permission">⊞</Text> <Text color="claude">{fitHead(branchName(wt.branch), width - 8)}</Text>
@@ -767,12 +904,45 @@ export const register: Register = on => {
             const mark = TOUCH_MARK[item.kind]
             const shown = fileLabel(item.path, width - 1 - cells(mark))
             return (
-              <Text>
-                <Text color={TOUCH_COLOR[item.kind]}>{mark}</Text> {shown.base}
-                {shown.dir && <Text dimColor> {shown.dir}</Text>}
-              </Text>
+              <Button key={`file-${item.path}`} plain onPress={() => void openFile($, item.abs ?? item.path)}>
+                <Text>
+                  <Text color={TOUCH_COLOR[item.kind]}>{mark}</Text> {shown.base}
+                  {shown.dir && <Text dimColor> {shown.dir}</Text>}
+                </Text>
+              </Button>
             )
           })}
+        </Box>
+      )
+
+    // IMAGES: the newest pasted images, as thumbnails (a click opens the image viewer)
+    const thumbCols = Math.max(8, width - 1)
+    const thumbRows = (img: PastedImage) =>
+      img.width && img.height
+        ? Math.max(3, Math.min(16, Math.round((thumbCols * img.height) / img.width / 2)))
+        : Math.round(thumbCols / 3)
+    const imageRows =
+      im.length === 0 ? (
+        <Text dimColor>{S['panel.no_images']}</Text>
+      ) : (
+        <Box flexDirection="column" gap={1}>
+          {[...im].reverse().slice(0, 3).map(img => (
+            <Box key={`img-${img.n}`} flexDirection="column">
+              <Button key={`img-open-${img.n}`} plain onPress={() => void openFile($, img.file)}>
+                <Text color="claude">[Image #{img.n}]</Text>
+              </Button>
+              {img.isPng && Image && (
+                <Image
+                  key={`img-${img.n}-${img.file}`}
+                  source={{ file: img.file, format: 'png' }}
+                  columns={thumbCols}
+                  rows={thumbRows(img)}
+                  alt={`[Image #${img.n}]`}
+                />
+              )}
+            </Box>
+          ))}
+          {im.length > 3 && <Text dimColor>+{im.length - 3}</Text>}
         </Box>
       )
 
@@ -782,6 +952,7 @@ export const register: Register = on => {
       git: [S['panel.git'], gitRows],
       tasks: [t.length ? `${S['panel.tasks']} ${done}/${t.length}` : S['panel.tasks'], todoRows],
       files: [S['panel.files'], fileRows],
+      images: [S['panel.images'], imageRows],
     }
     const { sections } = (await read($, layout)) ?? DEFAULT_LAYOUT
     return (

@@ -2,7 +2,11 @@ export type TodoStatus = 'pending' | 'in_progress' | 'completed'
 export type Todo = { id: string; text: string; status: TodoStatus }
 
 export type TouchKind = 'read' | 'edited' | 'created'
-export type FileTouch = { path: string; kind: TouchKind; at: number }
+/** path: as shown (relative to the session's folder when inside it); abs: what opens */
+export type FileTouch = { path: string; abs: string; kind: TouchKind; at: number }
+
+/** An image pasted into this Claude session: its [Image #n], the saved copy and its size */
+export type PastedImage = { n: number; file: string; isPng: boolean; width?: number; height?: number }
 
 export type GitFile = { status: string; path: string }
 export type GitInfo = {
@@ -14,6 +18,8 @@ export type GitInfo = {
   added: number
   removed: number
   worktrees: Worktree[]
+  /** the repository's top folder: git's paths are relative to it */
+  root?: string
 }
 
 export type Worktree = { name: string; branch: string; changes: number }
@@ -39,12 +45,13 @@ declare module 'claude-code' {
     'session-panel': {
       todos: Shaped<Todo[]>
       files: Shaped<FileTouch[]>
+      images: Shaped<PastedImage[]>
       git: Shaped<GitInfo | null>
       sessions: Shaped<SessionRow[] | null>
       strings: Shaped<Record<string, string>>
       agents: Shaped<{ id: string; name?: string; label?: string; status?: string; canView?: boolean }[]>
       layout: Shaped<{
-        sections: ('sessions' | 'agents' | 'git' | 'tasks' | 'files')[]
+        sections: ('sessions' | 'agents' | 'git' | 'tasks' | 'files' | 'images')[]
         autoOpen: boolean
         closeButtons: boolean
         confirmClose: string
