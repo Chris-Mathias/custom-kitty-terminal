@@ -164,5 +164,9 @@
   "value.length.short": "Curto",
   "value.length.balanced": "Equilibrado",
   "value.length.detailed": "Detalhado",
-  "menu.shortcut.need_modifier": "Use pelo menos um de Ctrl, Alt, Shift ou Super."
+  "menu.shortcut.need_modifier": "Use pelo menos um de Ctrl, Alt, Shift ou Super.",
+  "menu.item.subagent_rows": "Lista de subagentes embaixo do prompt",
+  "menu.item.panel.agents": "Subagentes",
+  "panel.agents": "SUBAGENTES",
+  "panel.no_agents": "nenhum rodando"
 }

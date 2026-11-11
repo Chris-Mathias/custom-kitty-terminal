@@ -66,9 +66,9 @@ class MenuTuiTest(unittest.TestCase):
 
     def test_order_editor_moves_a_section(self):
         # Claude Code → Side panel → Order: pick Sessions up, move it down once, drop.
-        keys = [DOWN, ENTER, DOWN, DOWN, ENTER] + [DOWN] * 4 + [ENTER, ENTER, DOWN, ENTER, b"q"]
+        keys = [DOWN, ENTER, DOWN, DOWN, DOWN, ENTER] + [DOWN] * 5 + [ENTER, ENTER, DOWN, ENTER, b"q"]
         settings, _ = self.run_menu(keys)
-        self.assertEqual(settings["panel"]["sections"], ["git", "sessions", "tasks", "files"])
+        self.assertEqual(settings["panel"]["sections"], ["agents", "sessions", "git", "tasks", "files"])
 
     def test_record_a_shortcut(self):
         # Shortcuts → Settings menu (21st row) → Record new keys → Ctrl+Alt+Y

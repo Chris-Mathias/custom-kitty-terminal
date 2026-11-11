@@ -79,6 +79,23 @@ class ShellI18nTest(unittest.TestCase):
                 line = json.loads(self.run_script("claude/subagent-statusline.sh", tasks)[1].splitlines()[0])
                 self.assertTrue(ANSI.sub("", line["content"]).startswith(name + " "))
 
+    TASKS = {"session_id": "s1", "cwd": "/tmp", "columns": 100,
+             "tasks": [{"id": "a1", "name": "general-purpose", "label": "Fixing the parser", "status": "running",
+                        "startTime": 1, "tokenCount": 72000}]}
+
+    def test_subagent_rows_saved_for_the_panel(self):
+        self.lang("en")
+        self.run_script("claude/subagent-statusline.sh", json.dumps(self.TASKS))
+        saved = json.loads(Path(self.tmp.name, ".cache/custom-kitty-terminal/agents/s1.json").read_text())
+        self.assertEqual(saved[0]["label"], "Fixing the parser")
+        self.assertEqual(saved[0]["name"], "general-purpose")
+
+    def test_subagent_rows_hidden_by_setting(self):
+        (self.cfg / "settings.json").write_text(json.dumps({"subagent_rows": False}))
+        out = self.run_script("claude/subagent-statusline.sh", json.dumps(self.TASKS))[1]
+        self.assertEqual(json.loads(out.splitlines()[0]), {"id": "a1", "content": ""})
+        self.assertTrue(Path(self.tmp.name, ".cache/custom-kitty-terminal/agents/s1.json").exists())
+
     def test_dialog_text(self):
         for lang, text in (("en", "Close this tab?"), ("pt", "Fechar esta aba?")):
             with self.subTest(lang=lang):

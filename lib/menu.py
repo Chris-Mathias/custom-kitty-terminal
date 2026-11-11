@@ -54,7 +54,8 @@ def _tree() -> Node:
         Node("order", "menu.item.panel.order", ("panel", "sections")),
         _toggle(("panel", "auto_open")),
     ))
-    claude = Node("group", "menu.group.claude", children=(response, status, panel, _choice(("spinner",))))
+    claude = Node("group", "menu.group.claude", children=(response, status, _choice(("subagent_rows",)), panel,
+                                                            _choice(("spinner",))))
     behavior = Node("group", "menu.group.behavior", children=(
         _choice(("reopen_tabs",)), _choice(("confirm_close",)), _choice(("kitty_ctrl_keys",)),
         _choice(("scrollback",)), _choice(("bell",)),

@@ -11,6 +11,22 @@ R=$'\e[0m'; DIM=$'\e[2m'; B=$'\e[1m'
 MAG=$(ckt_color magenta); CYAN=$(ckt_color cyan)
 CHANGES=$(ckt_t subagent.changes)
 
+# The side panel shows the subagents too: keep this session's rows where it can read them.
+session=$(jq -r '.session_id // empty' <<<"$input" | tr -cd 'A-Za-z0-9_-')
+if [[ -n $session ]]; then
+  cache="$HOME/.cache/custom-kitty-terminal/agents"
+  mkdir -p "$cache"
+  jq -c '[.tasks[]? | {id, name: (.name // .agentType // .type), label: (.label // .description // ""),
+          status, startTime, tokenCount}]' <<<"$input" > "$cache/$session.json.tmp" &&
+    mv "$cache/$session.json.tmp" "$cache/$session.json"
+fi
+
+# Settings menu → Claude Code → "Subagent list below the prompt" off: hide every row.
+if [[ $(jq -r 'if .subagent_rows == false then "off" else "on" end' "$CKT_SETTINGS" 2>/dev/null) == off ]]; then
+  jq -c '.tasks[]? | {id, content: ""}' <<<"$input"
+  exit 0
+fi
+
 session_cwd=$(jq -r '.cwd // ""' <<<"$input")
 cols=$(jq -r '.columns // 100' <<<"$input")
 width=$(( cols - 2 ))

@@ -15,7 +15,7 @@ REPO = Path(__file__).resolve().parent.parent
 LANGUAGES = ("en", "pt")
 THEMES = ("fedora", "catppuccin", "tokyo-night", "dracula", "gruvbox", "light")
 FONT_SIZES = range(8, 25)
-PANEL_SECTIONS = ("sessions", "git", "tasks", "files")
+PANEL_SECTIONS = ("sessions", "agents", "git", "tasks", "files")
 STATUS_ITEMS = ("context", "five_hour", "weekly", "resets", "model", "worktree")
 
 # Every scalar setting and the values it may take (the first tuple entries are
@@ -34,6 +34,7 @@ CHOICES = {
     "title_bar": ("gnome", "kitty", "none"),
     "ligatures": (True, False),
     "spinner": ("ours", "claude"),
+    "subagent_rows": (True, False),
     "reopen_tabs": (True, False),
     "confirm_close": ("running", "always", "never"),
     "kitty_ctrl_keys": (True, False),
@@ -48,6 +49,7 @@ DEFAULTS = {
     "opacity": 100, "cursor_shape": "block", "cursor_blink": True, "title_bar": "gnome", "ligatures": True,
     "response_style": {"enabled": False, "language": "pt", "length": "short", "previous": None},
     "spinner": "ours",
+    "subagent_rows": True,
     "status_line": {k: True for k in STATUS_ITEMS},
     "panel": {"sections": list(PANEL_SECTIONS), "auto_open": True},
     "reopen_tabs": True, "confirm_close": "running", "kitty_ctrl_keys": True, "scrollback": 20000, "bell": False,

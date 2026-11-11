@@ -73,6 +73,11 @@ class MenuTest(unittest.TestCase):
         self.assertEqual(go(m, "Length", "Detailed"), "apply")
         self.assertEqual(m.settings["response_style"]["length"], "detailed")
 
+    def test_hide_subagent_rows(self):
+        m = menu()
+        self.assertEqual(go(m, "Claude Code", "Subagent list below the prompt", "Off"), "apply")
+        self.assertIs(m.settings["subagent_rows"], False)
+
     def test_status_line_toggle(self):
         m = menu()
         self.assertEqual(go(m, "Claude Code", "Status line", "Weekly limit", "Off"), "apply")
@@ -82,21 +87,21 @@ class MenuTest(unittest.TestCase):
     def test_panel_order_move(self):
         m = menu()
         go(m, "Claude Code", "Side panel", "Order")
-        for _ in range(3):
+        for _ in range(4):
             m.key("down")
         self.assertIsNone(m.key("enter"))  # picks "Files" up
         self.assertTrue(m.view()["moving"])
-        for _ in range(3):
+        for _ in range(4):
             m.key("up")
         self.assertEqual(m.key("enter"), "apply")  # drops it first
-        self.assertEqual(m.settings["panel"]["sections"], ["files", "sessions", "git", "tasks"])
+        self.assertEqual(m.settings["panel"]["sections"], ["files", "sessions", "agents", "git", "tasks"])
 
     def test_panel_section_visibility(self):
         m = menu()
         self.assertEqual(go(m, "Claude Code", "Side panel", "Git", "Off"), "apply")
-        self.assertEqual(m.settings["panel"]["sections"], ["sessions", "tasks", "files"])
+        self.assertEqual(m.settings["panel"]["sections"], ["sessions", "agents", "tasks", "files"])
         self.assertEqual(go(m, "Git", "On"), "apply")
-        self.assertEqual(m.settings["panel"]["sections"], ["sessions", "tasks", "files", "git"])
+        self.assertEqual(m.settings["panel"]["sections"], ["sessions", "agents", "tasks", "files", "git"])
 
     def test_shortcut_capture(self):
         m = menu()
