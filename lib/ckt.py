@@ -178,19 +178,74 @@ def claude_settings_path() -> Path:
     return Path.home() / ".claude/settings.json"
 
 
+STYLE_FILE = "custom-kitty-terminal.md"
+
+
+def style_name(rs: dict) -> str:
+    lang = rs["language"]
+    return t("style.name", lang).format(length=t(f"style.length.{rs['length']}", lang))
+
+
+def all_style_names() -> set[str]:
+    return {style_name({"language": lang, "length": length}) for lang in LANGUAGES for length in RESPONSE_LENGTHS}
+
+
+def style_file(rs: dict) -> str:
+    lang = rs["language"]
+    length = t(f"style.length.{rs['length']}", lang)
+    return (f"---\nname: {style_name(rs)}\n"
+            f"description: {t('style.description', lang).format(length=length)}\n"
+            "keep-coding-instructions: true\n---\n\n"
+            f"{t('style.body.language', lang)}\n\n{t('style.body.' + rs['length'], lang)}\n\n"
+            f"{t('style.body.code', lang)}\n")
+
+
+def style_path() -> Path:
+    return Path.home() / ".claude/output-styles" / STYLE_FILE
+
+
+def _our_spinners() -> list[dict]:
+    return [{"mode": "replace", "verbs": t("spinner.verbs", lang)} for lang in LANGUAGES]
+
+
 def claude_values(s: dict) -> dict:
-    """The keys this project owns in ~/.claude/settings.json (never the response style)."""
-    return {
-        "theme": f"custom:{s['theme']}",
-        "spinnerVerbs": {"mode": "replace", "verbs": t("spinner.verbs", s["language"])},
-        **STATUS_LINES,
-    }
+    """The keys this project always owns in ~/.claude/settings.json."""
+    return {"theme": f"custom:{s['theme']}", **STATUS_LINES}
+
+
+def _apply_claude_options(s: dict, data: dict) -> None:
+    """Opt-in parts: spinner phrases and the response style. Never touches what the user set."""
+    if s["spinner"] == "ours":
+        data["spinnerVerbs"] = {"mode": "replace", "verbs": t("spinner.verbs", s["language"])}
+    elif data.get("spinnerVerbs") in _our_spinners():
+        del data["spinnerVerbs"]
+
+    rs = s["response_style"]
+    ours = all_style_names()
+    current = data.get("outputStyle")
+    if rs["enabled"]:
+        write_atomic(style_path(), style_file(rs))
+        if current not in ours:
+            rs["previous"] = current
+        data["outputStyle"] = style_name(rs)
+    else:
+        if current in ours:
+            if rs["previous"]:
+                data["outputStyle"] = rs["previous"]
+            else:
+                del data["outputStyle"]
+        rs["previous"] = None
+        try:
+            style_path().unlink()
+        except FileNotFoundError:
+            pass
 
 
 def merge_claude_settings(s: dict) -> bool:
     """Merges our keys into Claude's settings; True if the file changed.
 
-    Raises ValueError when the existing file isn't a JSON object (it is left untouched)."""
+    Raises ValueError when the existing file isn't a JSON object (it is left untouched).
+    May update s["response_style"]["previous"]; the caller saves s."""
     path = claude_settings_path()
     try:
         text = path.read_text()
@@ -200,6 +255,7 @@ def merge_claude_settings(s: dict) -> bool:
     if not isinstance(data, dict):
         raise ValueError("not a JSON object")
     merged = {**data, **claude_values(s)}
+    _apply_claude_options(s, merged)
     if merged == data:
         return False
     write_atomic(path, json.dumps(merged, indent=2, ensure_ascii=False) + "\n")
@@ -279,7 +335,10 @@ def apply(s: dict | None = None, reload: bool = True) -> list[str]:
     problems = []
     write_kitty_includes(s)
     try:
+        before = json.dumps(s["response_style"], sort_keys=True)
         merge_claude_settings(s)
+        if json.dumps(s["response_style"], sort_keys=True) != before:
+            save_settings(s)  # remembers the user's own response style
     except ValueError:
         problems.append(t("apply.claude_settings_invalid", s["language"]).format(path=claude_settings_path()))
     if reload:

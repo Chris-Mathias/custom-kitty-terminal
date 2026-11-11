@@ -80,5 +80,15 @@
   "shortcut.next_tab": "Next tab",
   "shortcut.split_right": "Split screen to the right",
   "shortcut.split_below": "Split screen below",
-  "shortcut.settings": "Settings menu"
+  "shortcut.settings": "Settings menu",
+  "style.name": "Terminal — English, {length}",
+  "style.description": "Answers in English, {length}",
+  "style.length.short": "short",
+  "style.length.balanced": "balanced",
+  "style.length.detailed": "detailed",
+  "style.body.language": "Always answer in English, even when the code, logs or documentation are in another language. Names of functions, commands, files and established technical terms stay as they are.",
+  "style.body.short": "Be concise:\n- Get to the point. The first sentence answers the question or says what was done.\n- No introductions, no restating the question and no closing summary that repeats what was already said.\n- Prefer short sentences and short lists. Use headings only when the answer has several parts.\n- Explain the why only when it isn't obvious or when there's a choice to make.\n- When you finish a task, say in a few lines what changed and what is still pending.",
+  "style.body.balanced": "Keep a balance:\n- Start with the answer or the result, then add the context that helps understand it.\n- Explain decisions and trade-offs briefly when they matter.\n- Use lists and headings when they make the answer easier to scan.\n- When you finish a task, summarize what changed, why, and what is still pending.",
+  "style.body.detailed": "Be thorough:\n- Explain your reasoning, the alternatives you considered and why you chose one.\n- Walk through changes step by step, with examples when they help.\n- Point out risks, edge cases and what to check next.\n- When you finish a task, describe what changed in each part, how to verify it and what is still pending.",
+  "style.body.code": "Comments and messages inside the code follow the language the project already uses."
 }
