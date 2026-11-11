@@ -47,6 +47,12 @@ def _folder(window):
         return os.path.expanduser('~')
 
 
+def _tab_line(tab) -> str:
+    """new_tab, with the name the tab was given by hand (double-click or set_tab_title)."""
+    name = ' '.join((getattr(tab, 'name', '') or '').split())
+    return f'new_tab {name}' if name else 'new_tab'
+
+
 def _save(timer_id=None):
     global _timer
     _timer = None
@@ -64,7 +70,7 @@ def _save(timer_id=None):
             if not windows:
                 continue
             lines.append('')
-            lines.append('new_tab')
+            lines.append(_tab_line(tab))
             lines.append(f'layout {tab.current_layout.name}')
             for w in windows:
                 lines.append(f'cd {shlex.quote(_folder(w))}')
