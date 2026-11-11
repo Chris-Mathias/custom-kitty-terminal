@@ -246,7 +246,13 @@ at = lines.index("[Default Applications]")
 lines.insert(at + 1, "x-scheme-handler/terminal=kitty.desktop")
 apps.write_text("\n".join(lines) + "\n")
 PY
+  desktop=${XDG_CURRENT_DESKTOP:-}
+  runner="$HOME/.local/bin/ckt-claude-tab"
+  case ${desktop^^} in
+  *GNOME*|*UNITY*)
   if command -v gsettings >/dev/null; then
+    # Older GNOME (and Ubuntu) read the default terminal from here.
+    gsettings set org.gnome.desktop.default-applications.terminal exec kitty 2>/dev/null || true
     favorites=$(gsettings get org.gnome.shell favorite-apps 2>/dev/null || echo "")
     if [[ $favorites == \[* ]]; then
       new=$(python3 -I -c '
@@ -266,7 +272,6 @@ print(out)' "$favorites")
     # already on Ctrl+Alt+T, or one that opens another terminal, is repointed;
     # otherwise one is added.
     base=org.gnome.settings-daemon.plugins.media-keys
-    runner="$HOME/.local/bin/ckt-claude-tab"
     found=""
     # The list prints as ['/path/a/', '/path/b/'] (or @as [] when empty): keep the quoted paths.
     for path in $(gsettings get $base custom-keybindings 2>/dev/null | grep -o "'[^']*'" | tr -d "'"); do
@@ -296,6 +301,33 @@ print(paths)' "$list" "$path")
     fi
   fi
   ok "kitty opens from Ctrl+Alt+T, \"Open in terminal\" and the dock"
+  ;;
+  *KDE*|*PLASMA*)
+    # Plasma: the default terminal in kdeglobals, and Ctrl+Alt+T moved from
+    # Konsole to ckt-claude-tab (a hidden launcher, so the global shortcut can run it).
+    kwc=$(command -v kwriteconfig6 || command -v kwriteconfig5 || true)
+    if [[ -n $kwc ]]; then
+      mkdir -p "$HOME/.local/share/applications"
+      printf '[Desktop Entry]\nType=Application\nName=Claude (kitty)\nExec=%s\nIcon=kitty\nNoDisplay=true\n' \
+        "$runner" > "$HOME/.local/share/applications/ckt-claude-tab.desktop"
+      "$kwc" --file kdeglobals --group General --key TerminalApplication kitty
+      "$kwc" --file kdeglobals --group General --key TerminalService kitty.desktop
+      "$kwc" --file kglobalshortcutsrc --group services --group org.kde.konsole.desktop --key _launch none
+      "$kwc" --file kglobalshortcutsrc --group services --group ckt-claude-tab.desktop --key _launch Ctrl+Alt+T
+      ok "kitty is Plasma's terminal; Ctrl+Alt+T opens a Claude tab (log out and back in for the shortcut)"
+    else
+      warn "kwriteconfig6 not found: pick kitty in System Settings → Default Applications"
+    fi
+    ;;
+  *CINNAMON*)
+    # Cinnamon's Ctrl+Alt+T opens this default terminal.
+    gsettings set org.cinnamon.desktop.default-applications.terminal exec kitty
+    ok "kitty is Cinnamon's terminal (Ctrl+Alt+T)"
+    ;;
+  *)
+    warn "${desktop:-this desktop}: set kitty as the default terminal (and Ctrl+Alt+T → $runner) in its settings"
+    ;;
+  esac
 fi
 
 step "Done"

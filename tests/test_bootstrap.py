@@ -44,6 +44,7 @@ fi''',
     "pkill": "exit 0",
     "fc-list": "printf 'Adwaita Mono\\nSymbola\\n'",
     "zsh": "exit 0",
+    "kwriteconfig6": 'echo "kwriteconfig6 $*" >> "$LOG"',
     "apt-get": 'echo "apt-get $*" >> "$LOG"',
     "dpkg": "exit 1",
     "pacman": 'echo "pacman $*" >> "$LOG"; [ "$1" = -Q ] && exit 1; exit 0',
@@ -64,7 +65,8 @@ class BootstrapTest(unittest.TestCase):
         self.log = Path(self.tmp.name, "calls.log")
         self.log.write_text("")
         self.env = {"HOME": str(self.home), "PATH": f"{stubs}:/usr/bin:/bin", "TERM": "dumb", "SHELL": "/bin/bash",
-                    "LOG": str(self.log), "CKT_REPO_URL": "https://example.invalid/ckt.git"}
+                    "LOG": str(self.log), "CKT_REPO_URL": "https://example.invalid/ckt.git",
+                    "XDG_CURRENT_DESKTOP": "GNOME"}
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -207,6 +209,31 @@ class BootstrapTest(unittest.TestCase):
         out, calls = self.run_bootstrap("--yes", "--no-claude")
         self.assertIn("install these yourself", out)
         self.assertTrue((self.home / ".config/kitty/kitty.conf").is_symlink())
+
+    def test_kde_default_terminal_and_shortcut(self):
+        self.env["XDG_CURRENT_DESKTOP"] = "KDE"
+        out, calls = self.run_bootstrap("--yes", "--no-claude")
+        self.assertIn("kwriteconfig6 --file kdeglobals --group General --key TerminalApplication kitty", calls)
+        self.assertIn("kwriteconfig6 --file kdeglobals --group General --key TerminalService kitty.desktop", calls)
+        self.assertIn("--group org.kde.konsole.desktop --key _launch none", calls)
+        self.assertIn("--group ckt-claude-tab.desktop --key _launch Ctrl+Alt+T", calls)
+        desktop = (self.home / ".local/share/applications/ckt-claude-tab.desktop").read_text()
+        self.assertIn(f"Exec={self.home}/.local/bin/ckt-claude-tab", desktop)
+        self.assertNotIn("org.gnome", calls)
+        self.assertIn("log out", out)
+
+    def test_cinnamon_default_terminal(self):
+        self.env["XDG_CURRENT_DESKTOP"] = "X-Cinnamon"
+        _, calls = self.run_bootstrap("--yes", "--no-claude")
+        self.assertIn("gsettings set org.cinnamon.desktop.default-applications.terminal exec kitty", calls)
+        self.assertNotIn("org.gnome.shell", calls)
+
+    def test_other_desktops_get_a_note(self):
+        self.env["XDG_CURRENT_DESKTOP"] = "XFCE"
+        out, calls = self.run_bootstrap("--yes", "--no-claude")
+        self.assertNotIn("gsettings set", calls)
+        self.assertIn("XFCE", out)
+        self.assertEqual((self.home / ".config/xdg-terminals.list").read_text().splitlines()[0], "kitty.desktop")
 
 
 if __name__ == "__main__":
