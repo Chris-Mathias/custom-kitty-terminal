@@ -39,8 +39,8 @@ class SettingsTest(ConfigDirTest):
         self.assertEqual(ckt.load_settings(), ckt.DEFAULTS)
 
     def test_defaults_values(self):
-        self.assertEqual(ckt.DEFAULTS, {"language": "en", "theme": "fedora",
-                                        "font_family": "Adwaita Mono", "font_size": 12})
+        first = {k: ckt.DEFAULTS[k] for k in ("language", "theme", "font_family", "font_size")}
+        self.assertEqual(first, {"language": "en", "theme": "fedora", "font_family": "Adwaita Mono", "font_size": 12})
 
     def test_corrupt_file_gives_defaults(self):
         self.write_settings("{nope")

@@ -15,7 +15,44 @@ REPO = Path(__file__).resolve().parent.parent
 LANGUAGES = ("en", "pt")
 THEMES = ("fedora", "catppuccin", "tokyo-night", "dracula", "gruvbox", "light")
 FONT_SIZES = range(8, 25)
-DEFAULTS = {"language": "en", "theme": "fedora", "font_family": "Adwaita Mono", "font_size": 12}
+PANEL_SECTIONS = ("sessions", "git", "tasks", "files")
+STATUS_ITEMS = ("context", "five_hour", "weekly", "resets", "model", "worktree")
+
+# Every scalar setting and the values it may take (the first tuple entries are
+# not the defaults; DEFAULTS below is).
+CHOICES = {
+    "language": LANGUAGES,
+    "theme": THEMES,
+    "font_size": tuple(FONT_SIZES),
+    "line_height": tuple(range(100, 131, 5)),
+    "padding": ("compact", "normal", "roomy"),
+    "tab_style": ("slanted", "round", "angled", "separators"),
+    "tab_position": ("top", "bottom"),
+    "opacity": tuple(range(70, 101, 5)),
+    "cursor_shape": ("block", "beam", "underline"),
+    "cursor_blink": (True, False),
+    "title_bar": ("gnome", "kitty", "none"),
+    "ligatures": (True, False),
+    "spinner": ("ours", "claude"),
+    "reopen_tabs": (True, False),
+    "confirm_close": ("running", "always", "never"),
+    "kitty_ctrl_keys": (True, False),
+    "scrollback": (5000, 10000, 20000, 50000, 100000),
+    "bell": (False, True),
+}
+RESPONSE_LENGTHS = ("short", "balanced", "detailed")
+
+DEFAULTS = {
+    "language": "en", "theme": "fedora", "font_family": "Adwaita Mono", "font_size": 12,
+    "line_height": 115, "padding": "normal", "tab_style": "slanted", "tab_position": "top",
+    "opacity": 100, "cursor_shape": "block", "cursor_blink": True, "title_bar": "gnome", "ligatures": True,
+    "response_style": {"enabled": False, "language": "pt", "length": "short", "previous": None},
+    "spinner": "ours",
+    "status_line": {k: True for k in STATUS_ITEMS},
+    "panel": {"sections": list(PANEL_SECTIONS), "auto_open": True},
+    "reopen_tabs": True, "confirm_close": "running", "kitty_ctrl_keys": True, "scrollback": 20000, "bell": False,
+    "shortcuts": {},
+}
 
 
 def config_dir() -> Path:
@@ -26,16 +63,50 @@ def settings_path() -> Path:
     return config_dir() / "settings.json"
 
 
-def _valid(key: str, value) -> bool:
-    if key == "language":
-        return value in LANGUAGES
-    if key == "theme":
-        return value in THEMES
-    if key == "font_size":
-        return isinstance(value, int) and not isinstance(value, bool) and value in FONT_SIZES
+def _same_type(value, default) -> bool:
+    # bool is an int in Python: keep True/False and numbers apart.
+    return type(value) is type(default)
+
+
+def _scalar(key: str, value):
+    default = DEFAULTS[key]
     if key == "font_family":
-        return isinstance(value, str) and bool(value.strip())
-    return False
+        return value if isinstance(value, str) and value.strip() else default
+    if _same_type(value, default) and value in CHOICES[key]:
+        return value
+    return default
+
+
+def _nested(key: str, value):
+    default = DEFAULTS[key]
+    value = value if isinstance(value, dict) else {}
+    if key == "status_line":
+        return {k: value[k] if isinstance(value.get(k), bool) else True for k in STATUS_ITEMS}
+    if key == "panel":
+        sections = value.get("sections")
+        if isinstance(sections, list):
+            seen = []
+            for name in sections:
+                if name in PANEL_SECTIONS and name not in seen:
+                    seen.append(name)
+        else:
+            seen = list(PANEL_SECTIONS)
+        auto = value.get("auto_open")
+        return {"sections": seen, "auto_open": auto if isinstance(auto, bool) else True}
+    if key == "response_style":
+        rs = dict(default)
+        if isinstance(value.get("enabled"), bool):
+            rs["enabled"] = value["enabled"]
+        if value.get("language") in LANGUAGES:
+            rs["language"] = value["language"]
+        if value.get("length") in RESPONSE_LENGTHS:
+            rs["length"] = value["length"]
+        if isinstance(value.get("previous"), str):
+            rs["previous"] = value["previous"]
+        return rs
+    if key == "shortcuts":
+        return {k: v for k, v in value.items() if isinstance(k, str) and isinstance(v, str) and v}
+    return default
 
 
 def load_settings() -> dict:
@@ -45,7 +116,8 @@ def load_settings() -> dict:
         raw = {}
     if not isinstance(raw, dict):
         raw = {}
-    return {k: raw[k] if _valid(k, raw.get(k)) else v for k, v in DEFAULTS.items()}
+    return {k: _nested(k, raw.get(k)) if isinstance(v, dict) else _scalar(k, raw.get(k))
+            for k, v in DEFAULTS.items()}
 
 
 def write_atomic(path: Path, text: str) -> None:
