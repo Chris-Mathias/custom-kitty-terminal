@@ -43,7 +43,12 @@ declare module 'claude-code' {
       sessions: Shaped<SessionRow[] | null>
       strings: Shaped<Record<string, string>>
       agents: Shaped<{ id: string; name?: string; label?: string; status?: string; canView?: boolean }[]>
-      layout: Shaped<{ sections: ('sessions' | 'agents' | 'git' | 'tasks' | 'files')[]; autoOpen: boolean } | null>
+      layout: Shaped<{
+        sections: ('sessions' | 'agents' | 'git' | 'tasks' | 'files')[]
+        autoOpen: boolean
+        closeButtons: boolean
+        confirmClose: string
+      } | null>
     }
   }
 }

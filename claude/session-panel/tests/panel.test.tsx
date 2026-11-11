@@ -241,3 +241,32 @@ test('sessions in the same kitty tab are joined by a bracket, like VS Code', asy
   expect(await text(/Incerti/)).toBeUndefined() // no tab header
   await ui.unmount()
 })
+
+test('with the option on, the x of a session asks to close it in its own tab', async ($, on) => {
+  const { ui, tmuxCalls } = await mountPanel($, on, {
+    [SETTINGS]: '{"language":"en","panel_close_buttons":true}',
+    '/repo/i18n/en.json': EN,
+  })
+  await ui.press({ key: 'close-bbb' })
+  expect(tmuxCalls.at(-1)).toEqual([
+    'kitten', '@', '--to', 'unix:@kitty-99', 'launch', '--type=overlay', '--match', 'id:7',
+    '/home/teste/.config/kitty/close-tab-dialog.sh', 'window:7', 'Claude Code · seminario-82',
+  ])
+  await ui.unmount()
+})
+
+test('with confirmation set to never, the x closes the session right away', async ($, on) => {
+  const { ui, tmuxCalls } = await mountPanel($, on, {
+    [SETTINGS]: '{"language":"en","panel_close_buttons":true,"confirm_close":"never"}',
+    '/repo/i18n/en.json': EN,
+  })
+  await ui.press({ key: 'close-bbb' })
+  expect(tmuxCalls.at(-1)).toEqual(['kitten', '@', '--to', 'unix:@kitty-99', 'close-window', '--match', 'id:7'])
+  await ui.unmount()
+})
+
+test('the x is not drawn when the option is off', async ($, on) => {
+  const { ui } = await mountPanel($, on, { [SETTINGS]: '{"language":"en"}', '/repo/i18n/en.json': EN })
+  expect(await ui.find({ type: 'Button', key: 'close-bbb' })).toBeUndefined()
+  await ui.unmount()
+})

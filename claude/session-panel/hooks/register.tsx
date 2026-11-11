@@ -58,8 +58,8 @@ async function readJson($: Engine, path: string): Promise<Record<string, unknown
 // (settings menu → Claude Code → Side panel).
 const SECTIONS = ['sessions', 'agents', 'tasks', 'git', 'files'] as const
 type Section = (typeof SECTIONS)[number]
-type Layout = { sections: Section[]; autoOpen: boolean }
-const DEFAULT_LAYOUT: Layout = { sections: [...SECTIONS], autoOpen: true }
+type Layout = { sections: Section[]; autoOpen: boolean; closeButtons: boolean; confirmClose: string }
+const DEFAULT_LAYOUT: Layout = { sections: [...SECTIONS], autoOpen: true, closeButtons: false, confirmClose: 'running' }
 
 async function readSettings($: Engine): Promise<Record<string, unknown>> {
   const dir = (await $.env.get('CKT_CONFIG_DIR')) || `${await $.env.get('HOME')}/.config/custom-kitty-terminal`
@@ -73,7 +73,12 @@ function layoutOf(settings: Record<string, unknown>): Layout {
         (x, i, all): x is Section => SECTIONS.includes(x as Section) && all.indexOf(x) === i,
       )
     : [...SECTIONS]
-  return { sections, autoOpen: typeof panel.auto_open === 'boolean' ? panel.auto_open : true }
+  return {
+    sections,
+    autoOpen: typeof panel.auto_open === 'boolean' ? panel.auto_open : true,
+    closeButtons: settings.panel_close_buttons === true,
+    confirmClose: typeof settings.confirm_close === 'string' ? settings.confirm_close : 'running',
+  }
 }
 
 async function loadStrings($: Engine): Promise<Strings> {
@@ -111,7 +116,7 @@ const sessions = atom({ plugin: 'session-panel', key: 'sessions' } as const, nul
 const strings = atom({ plugin: 'session-panel', key: 'strings' } as const, {} as Record<string, string>, {
   shape: 'strings-1',
 })
-const layout = atom({ plugin: 'session-panel', key: 'layout' } as const, null as Layout | null, { shape: 'layout-1' })
+const layout = atom({ plugin: 'session-panel', key: 'layout' } as const, null as Layout | null, { shape: 'layout-2' })
 // Branch name stored for a detached HEAD; drawn in the user's language.
 const DETACHED = '\u0000detached'
 
@@ -257,6 +262,23 @@ async function kittyTabs($: Engine, sockets: string[]): Promise<Map<string, TabI
     }
   }
   return out
+}
+
+// The x of a session (settings: "Close button on panel sessions"): closes its
+// kitty window, asking first in that tab with the same box as Ctrl+Alt+W.
+async function closeSession($: Engine, row: SessionRow) {
+  const k = row.kitty
+  if (!k) return
+  const { confirmClose } = (await read($, layout)) ?? DEFAULT_LAYOUT
+  const argv =
+    confirmClose === 'never'
+      ? ['kitten', '@', '--to', k.socket, 'close-window', '--match', `id:${k.window}`]
+      : [
+          'kitten', '@', '--to', k.socket, 'launch', '--type=overlay', '--match', `id:${k.window}`,
+          `${await $.env.get('HOME')}/.config/kitty/close-tab-dialog.sh`, `window:${k.window}`, `Claude Code · ${row.title}`,
+        ]
+  const run = await $.process.run(argv, { timeoutMs: 5000 })
+  if (run.exitCode !== 0) $.ui.toast(`kitty: ${run.stderr.trim()}`)
 }
 
 async function focusKitty($: Engine, k: { window: string; socket: string }) {
@@ -532,6 +554,7 @@ export const register: Register = on => {
     // 1 column of left margin
     const width = Math.max(18, ((e.props as { bodyColumns?: number }).bodyColumns ?? PANE_COLUMNS) - 1)
     viewedAgent = (e.props as { view?: { agentId?: string } }).view?.agentId
+    const { closeButtons } = (await read($, layout)) ?? DEFAULT_LAYOUT
     const [s, g, t, f, S, a] = await Promise.all([
       read($, sessions), read($, git), read($, todos), read($, files), textOf($), read($, agents),
     ])
@@ -563,22 +586,34 @@ export const register: Register = on => {
               // Sessions sharing a kitty tab are joined by a bracket, as VS Code groups split terminals.
               const n = group.rows.length
               const indent = n < 2 ? '' : i === 0 ? '┌ ' : i === n - 1 ? '└ ' : '├ '
-              const label = fitHead(row.title, width - 3 - tag.length - indent.length)
+              const label = fitHead(row.title, width - 3 - tag.length - indent.length - (closeButtons ? 2 : 0))
               const pane = row.tmuxPane
               const kitty = row.kitty
               const canSwitch = Boolean(pane || kitty)
+              const closeX = closeButtons && kitty
+              const withClose = (body: unknown) =>
+                closeX ? (
+                  <Box key={row.id} flexDirection="row" justifyContent="space-between">
+                    {body}
+                    <Button key={`close-${row.id}`} plain onPress={() => void closeSession($, row)}>
+                      <Text dimColor>×</Text>
+                    </Button>
+                  </Box>
+                ) : (
+                  body
+                )
               // In kitty or tmux the row is a button: clicking switches to the session.
               if (canSwitch && !row.isSelf)
-                return (
+                return withClose(
                   <Button key={row.id} plain onPress={() => void pressSession($, kitty, pane)}>
                     <Text>
                       <Text dimColor>{indent}</Text>
                       <Text color={look.color}>{look.mark}</Text> {label}
                       {tag && <Text dimColor>{tag}</Text>}
                     </Text>
-                  </Button>
+                  </Button>,
                 )
-              return (
+              return withClose(
                 <Text key={row.id}>
                   <Text dimColor>{indent}</Text>
                   <Text color={look.color}>{look.mark}</Text>{' '}
@@ -586,7 +621,7 @@ export const register: Register = on => {
                     {label}
                   </Text>
                   {tag && <Text dimColor>{tag}</Text>}
-                </Text>
+                </Text>,
               )
             })}
           </Box>

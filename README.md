@@ -56,7 +56,7 @@ Upgrading from the older Portuguese version of this repo: just run `./install.sh
 |---|---|
 | Appearance | theme, font, font size, line height, padding, tab style (slanted, round, angled, separators), tab bar on top or bottom, transparency, cursor shape and blink, title bar (the system's, kitty's own, none — needs a kitty restart), ligatures |
 | Claude Code | response style (off by default; when on: response language and length — short, balanced, detailed), status line items, the subagent list below the prompt (shown or hidden — the subagents are also in the side panel), side panel sections (sessions, subagents, tasks, git, files), their order and whether it opens by itself, phrases while thinking (ours or Claude's) |
-| Behavior | reopen tabs on start, confirm before closing (only if something runs, always, never), whether kitty keeps `Ctrl+W`/`Ctrl+N`, scrollback lines, bell |
+| Behavior | reopen tabs on start, confirm before closing (only if something runs, always, never), whether kitty keeps `Ctrl+W`/`Ctrl+N`, scrollback lines, bell, a close button (×) on each tab, a close button (×) on each session in the side panel (both off by default; they ask before closing like `Ctrl+W`) |
 | Shortcuts | every shortcut in the table below: pick one, choose "Record new keys" and press the combination. If it's already used (by this project or by kitty), the menu asks before swapping. "Reset to default" and "Reset all" undo changes. |
 
 The response style is never touched unless you turn it on. When you do, the menu writes one style file (`~/.claude/output-styles/custom-kitty-terminal.md`) and remembers the style you had before; turning it off puts that one back.
