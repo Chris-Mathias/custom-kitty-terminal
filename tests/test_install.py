@@ -82,7 +82,10 @@ class InstallTest(unittest.TestCase):
         zshrc = self.p(".zshrc").read_text()
         self.assertEqual(zshrc.count("# >>> custom-kitty-terminal >>>"), 1)
         self.assertIn("claude-mods/session-panel", zshrc)
-        self.assertTrue(self.p(".config/kitty/generated/theme.conf").exists())
+        for name in ("theme", "font", "appearance", "behavior", "shortcuts"):
+            self.assertTrue(self.p(f".config/kitty/generated/{name}.conf").exists(), name)
+        self.assertIn("map ctrl+alt+t ", self.p(".config/kitty/generated/shortcuts.conf").read_text())
+        self.assertNotIn("\nmap ", (REPO / "kitty/kitty.conf").read_text())
         claude = json.loads(self.p(".claude/settings.json").read_text())
         self.assertNotIn("outputStyle", claude)
         self.assertFalse(self.p(".claude/output-styles").exists())
