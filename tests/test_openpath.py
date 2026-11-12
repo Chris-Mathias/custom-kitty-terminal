@@ -177,6 +177,23 @@ class ImageTest(unittest.TestCase):
             self.assertEqual(op.image_for("sid", "2", cache), os.path.join(cache, "sid", "2.png"))
             self.assertIsNone(op.image_for("sid", "9", cache, uid=-1))
 
+    def test_image_from_transcript(self):
+        import base64
+        import json as js
+        png = base64.b64encode(b"\x89PNG fake").decode()
+        msg = {"type": "user", "message": {"role": "user", "content": [
+            {"type": "text", "text": "[Image #3] [Image #4] look"},
+            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "AAAA"}},
+            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": png}},
+        ]}}
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, "projects", "-p"))
+            Path(root, "projects", "-p", "sid.jsonl").write_text('{"type": "x"}\n' + js.dumps(msg) + "\n")
+            out = op.image_from_transcript("sid", "4", os.path.join(root, "projects"), os.path.join(root, "cache"))
+            self.assertEqual(out, os.path.join(root, "cache", "sid", "4.png"))
+            self.assertEqual(Path(out).read_bytes(), b"\x89PNG fake")
+            self.assertIsNone(op.image_from_transcript("sid", "9", os.path.join(root, "projects"), os.path.join(root, "cache")))
+
     def test_is_image(self):
         self.assertTrue(op.is_image("/a/B.PNG"))
         self.assertFalse(op.is_image("/a/b.rs"))

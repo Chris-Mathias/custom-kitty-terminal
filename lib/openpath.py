@@ -150,6 +150,53 @@ def image_for(session_id: str, number: str, cache: str | None = None, uid: int |
     return found[0] if found else None
 
 
+_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp"}
+
+
+def image_from_transcript(session_id: str, number: str, projects: str | None = None,
+                          cache: str | None = None) -> str | None:
+    """Takes "[Image #N]" out of the session's own transcript and saves it to the cache.
+
+    For images pasted before the side panel kept copies: the transcript holds each
+    pasted image (base64) in the message whose text names it as [Image #N]."""
+    import base64
+    projects = projects or os.path.expanduser("~/.claude/projects")
+    cache = cache or os.path.expanduser("~/.cache/custom-kitty-terminal/images")
+    found = glob.glob(os.path.join(projects, "*", f"{glob.escape(session_id)}.jsonl"))
+    if not found:
+        return None
+    tag = f"[Image #{number}]"
+    try:
+        with open(found[0], encoding="utf-8") as f:
+            for line in f:
+                if tag not in line or '"image"' not in line:
+                    continue
+                try:
+                    msg = json.loads(line).get("message") or {}
+                except ValueError:
+                    continue
+                content = msg.get("content")
+                if msg.get("role") != "user" or not isinstance(content, list):
+                    continue
+                text = " ".join(c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text")
+                names = _IMAGE.findall(text)
+                images = [c for c in content if isinstance(c, dict) and c.get("type") == "image"]
+                # Each pasted image comes in the same order as its [Image #N] in the text.
+                pairs = dict(zip(names[-len(images):] if images else [], images))
+                src = (pairs.get(number) or {}).get("source") or {}
+                if src.get("type") != "base64" or not src.get("data"):
+                    continue
+                folder = os.path.join(cache, session_id)
+                os.makedirs(folder, exist_ok=True)
+                out = os.path.join(folder, f"{number}.{_EXT.get(src.get('media_type'), 'img')}")
+                with open(out, "wb") as img:
+                    img.write(base64.b64decode(src["data"]))
+                return out
+    except OSError:
+        return None
+    return None
+
+
 def panel_files(session_id: str, cache: str | None = None) -> list[str]:
     """Full paths of the files the side panel of that Claude session lists (git and files).
 

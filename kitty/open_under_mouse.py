@@ -105,7 +105,8 @@ def _open(boss: Boss, target_window_id: int) -> None:
     # Images first: "[Image #3]" is no link, and a URL detector could take part of the row.
     if target is not None and target.kind == 'image':
         session = _claude_session(window, op)
-        image = op.image_for(session, target.value) if session else None
+        image = (op.image_for(session, target.value) or op.image_from_transcript(session, target.value)
+                 if session else None)
         _log(f'  image #{target.value} of session {session}: {image}')
         if image:
             op.desktop_open(image)
